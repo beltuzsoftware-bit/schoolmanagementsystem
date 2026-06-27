@@ -252,15 +252,19 @@ export function readDb(): DatabaseSchema {
 export function writeDb(data: DatabaseSchema) {
     try {
         // Create a backup of the current file before overwriting
+        // Use copyFileSync (not rename) so it works across different filesystems
+        // (e.g. Docker bind-mounts where .bak is on host but source is overlay fs)
         if (fs.existsSync(DB_PATH)) {
             const backupPath = `${DB_PATH}.bak`;
             fs.copyFileSync(DB_PATH, backupPath);
         }
-        
-        // Write to a temporary file first to ensure atomicity as much as possible
-        const tempPath = `${DB_PATH}.tmp`;
-        fs.writeFileSync(tempPath, JSON.stringify(data, null, 2));
-        fs.renameSync(tempPath, DB_PATH);
+
+        // Write directly to DB_PATH.
+        // NOTE: We intentionally avoid the temp-file + renameSync pattern here
+        // because in Docker, DB_PATH is a host bind-mount while a sibling .tmp
+        // file would land on the container overlay filesystem — Linux rename()
+        // cannot cross filesystem boundaries (EXDEV error).
+        fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
     } catch (error) {
         console.error('Failed to write DB:', error);
         throw error; // Re-throw to allow callers to handle failure
