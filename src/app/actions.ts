@@ -2163,17 +2163,28 @@ export async function addIDCardTemplate(template: IDCardTemplate) {
 }
 
 export async function updateIDCardTemplate(updatedTemplate: IDCardTemplate) {
-    const db = readDb();
-    if (!db.idCardTemplates) return { success: false, error: 'No templates found' };
+    try {
+        const db = readDb();
+        if (!db.idCardTemplates) return { success: false, error: 'No idCardTemplates array in DB' };
 
-    const index = db.idCardTemplates.findIndex((t: any) => t.id === updatedTemplate.id);
-    if (index === -1) return { success: false, error: 'Template not found' };
+        console.log('[updateIDCardTemplate] Target ID:', updatedTemplate.id);
+        console.log('[updateIDCardTemplate] Available IDs:', db.idCardTemplates.map((t: any) => t.id));
 
-    db.idCardTemplates[index] = updatedTemplate;
-    writeDb(db);
-    revalidatePath('/super-admin/modules/id-cards');
-    revalidatePath('/school-admin/id-cards');
-    return { success: true };
+        const index = db.idCardTemplates.findIndex((t: any) => t.id === updatedTemplate.id);
+        if (index === -1) {
+            console.error('[updateIDCardTemplate] Template not found in database for ID:', updatedTemplate.id);
+            return { success: false, error: `Template not found (ID: ${updatedTemplate.id})` };
+        }
+
+        db.idCardTemplates[index] = updatedTemplate;
+        writeDb(db);
+        revalidatePath('/super-admin/modules/id-cards');
+        revalidatePath('/school-admin/id-cards');
+        return { success: true };
+    } catch (error: any) {
+        console.error('[updateIDCardTemplate] Exception:', error);
+        return { success: false, error: error?.message || String(error) };
+    }
 }
 
 export async function deleteIDCardTemplate(id: string) {
