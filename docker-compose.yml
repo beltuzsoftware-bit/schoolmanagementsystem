@@ -7,7 +7,9 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    user: "1001:1001"
+    # Run as root so we can always write to data.json
+    # (git pull on host recreates the file as root-owned on every deploy)
+    user: "0:0"
     volumes:
       - ./data.json:/app/data.json
     environment:
