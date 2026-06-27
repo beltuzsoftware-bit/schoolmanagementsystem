@@ -227,8 +227,9 @@ export default function IDCardsPage() {
                     toast.error((res as any).error || 'Failed to update template');
                 }
             }
-        } catch (error) {
-            toast.error('Failed to save template');
+        } catch (error: any) {
+            console.error('[handleSave] Exception:', error);
+            toast.error(`Failed to save template: ${error?.message || String(error)}`);
         }
     };
 
