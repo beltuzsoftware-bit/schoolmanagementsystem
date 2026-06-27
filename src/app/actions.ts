@@ -3725,10 +3725,11 @@ Return a valid JSON object matching the following structure:
   "secondaryColor": "hex string (secondary color)",
   "textColor": "hex string",
   "borderRadius": "none" | "sm" | "md" | "lg" | "full",
+  "schoolNameOnCard": "string (the name of the school written on the card, e.g. 'J.S. INTERNATIONAL SCHOOL')",
   "canvasElements": [
     {
       "id": "unique_string",
-      "type": "photo" | "signature" | "field" | "text" | "qrcode",
+      "type": "photo" | "signature" | "field" | "text" | "qrcode" | "school_logo" | "school_name",
       "x": number (percentage of card width 0 to 100),
       "y": number (percentage of card height 0 to 100),
       "width": number (percentage of card width 0 to 100),
@@ -3756,9 +3757,12 @@ Strict Layout Rules for Reconstructing the Original Image:
 3. Field Alignment:
    - If fields are centered, set align: "center".
    - If fields have small icons on the left, align them left starting at x: 10, with width: 80.
-4. Colors:
+4. Header Branding Detection:
+   - Detect the school logo in the card header, return it as type: "school_logo".
+   - Detect the school name text/header text in the card header, return it as type: "school_name".
+5. Colors:
    - Extract the predominant brand/school colors for primaryColor and secondaryColor from the card's header or background design.
-5. Return ONLY the raw JSON object. Do not include markdown code block formatting (like \`\`\`json).
+6. Return ONLY the raw JSON object. Do not include markdown code block formatting (like \`\`\`json).
 `;
 
     const payload = {
@@ -3862,7 +3866,7 @@ Strict Layout Rules for Reconstructing the Original Image:
     console.log('[analyzeIDCardLayout] Parsing template JSON response...');
     const templateData = JSON.parse(cleanedText);
 
-    const completeTemplate: Partial<IDCardTemplate> = {
+    const completeTemplate: Partial<IDCardTemplate> & { schoolNameOnCard?: string } = {
       name: `AI Template ${new Date().toLocaleDateString()}`,
       layout: templateData.layout || 'vertical',
       width: templateData.width || 54,
@@ -3872,6 +3876,7 @@ Strict Layout Rules for Reconstructing the Original Image:
       fontFamily: 'Inter',
       textColor: templateData.textColor || '#000000',
       borderRadius: templateData.borderRadius || 'md',
+      schoolNameOnCard: templateData.schoolNameOnCard,
       layoutMode: 'drag-drop',
       showLogo: true,
       showPhoto: true,

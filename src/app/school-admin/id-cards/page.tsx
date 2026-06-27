@@ -372,7 +372,11 @@ export default function IDCardsPage() {
         reader.readAsDataURL(file);
     };
 
-    const cleanBackgroundImage = (originalBase64: string, elements: any[]): Promise<string> => {
+    const cleanBackgroundImage = (
+        originalBase64: string, 
+        elements: any[], 
+        shouldEraseHeaderBranding: boolean
+    ): Promise<string> => {
         return new Promise((resolve) => {
             const img = new Image();
             img.src = originalBase64;
@@ -390,6 +394,12 @@ export default function IDCardsPage() {
 
                 // Erase old student elements from the background template
                 elements.forEach((el) => {
+                    const isHeaderBranding = el.type === 'school_logo' || el.type === 'school_name';
+                    if (isHeaderBranding && !shouldEraseHeaderBranding) {
+                        // Skip erasing header branding if the school name matches
+                        return;
+                    }
+
                     const x = (el.x / 100) * canvas.width;
                     const y = (el.y / 100) * canvas.height;
                     const w = (el.width / 100) * canvas.width;
@@ -453,23 +463,48 @@ export default function IDCardsPage() {
             if (res.success && res.template) {
                 let finalBg = aiBgBase64 || undefined;
                 
+                const schoolNameOnCard = (res.template as any).schoolNameOnCard || "";
+                const activeSchoolName = school?.name || "";
+                
+                // Compare school name on card vs active school name (case-insensitive, trimmed)
+                const isDifferentSchool = !activeSchoolName || !schoolNameOnCard || 
+                    activeSchoolName.toLowerCase().trim() !== schoolNameOnCard.toLowerCase().trim();
+
                 // If the user didn't upload a blank background, clean the original card automatically!
                 if (!finalBg && aiImageBase64) {
                     setAiStage("Cleaning old photo & text from background...");
                     await new Promise(r => setTimeout(r, 400));
                     try {
-                        finalBg = await cleanBackgroundImage(aiImageBase64, res.template.canvasElements || []);
+                        finalBg = await cleanBackgroundImage(
+                            aiImageBase64, 
+                            res.template.canvasElements || [],
+                            isDifferentSchool
+                        );
                     } catch (cleanErr) {
                         console.error("Clean background failed:", cleanErr);
                     }
                 }
 
+                // Create the template config, settings showSchoolHeader dynamically based on match
                 const finalTemplate = {
                     ...res.template,
-                    backgroundImage: finalBg
+                    backgroundImage: finalBg,
+                    showSchoolHeader: isDifferentSchool
                 };
+
+                // Filter out school_logo and school_name from canvasElements list so they don't render as draggable elements
+                if (finalTemplate.canvasElements) {
+                    finalTemplate.canvasElements = finalTemplate.canvasElements.filter(
+                        (el: any) => el.type !== 'school_logo' && el.type !== 'school_name'
+                    );
+                }
+
                 setAiResultTemplate(finalTemplate);
-                toast.success("AI Layout Analysis Complete!");
+                toast.success(
+                    isDifferentSchool 
+                        ? `AI Layout Analysis Complete! Replaced logo and name header with "${activeSchoolName}".` 
+                        : "AI Layout Analysis Complete! Brand header matched original card."
+                );
             } else {
                 toast.error(res.error || "Failed to analyze template");
             }
