@@ -9,6 +9,7 @@ RUN apk add --no-cache libc6-compat openssl
 # 2. Dependencies Stage: Clean installation of packages
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 # 3. Builder Stage: Compile the standalone production bundle
