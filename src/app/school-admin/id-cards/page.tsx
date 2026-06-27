@@ -16,10 +16,11 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { IdCard, Printer, Search, User, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2 } from "lucide-react";
+import { IdCard, Printer, Search, User, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getIDCardTemplates, getSchools, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate } from "@/app/actions";
+import { analyzeIDCardLayout } from "@/app/actions/ai-actions";
 import { IDCardTemplate, School, Student } from "@/types";
 import { IDCardPreview } from "@/components/id-cards/id-card-preview";
 import IDCardTemplateEditor from "@/components/super-admin/id-card-template-editor";
@@ -56,6 +57,37 @@ export default function IDCardsPage() {
     // Rename Dialog States
     const [renamingTemplate, setRenamingTemplate] = useState<IDCardTemplate | null>(null);
     const [newName, setNewName] = useState("");
+
+    // AI Creator States
+    const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
+    const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
+    const [aiStage, setAiStage] = useState("");
+    const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
+    const [aiBgBase64, setAiBgBase64] = useState<string | null>(null);
+    const [geminiKey, setGeminiKey] = useState("");
+    const [aiResultTemplate, setAiResultTemplate] = useState<Partial<IDCardTemplate> | null>(null);
+
+    const dummyStudent: Student = {
+        id: "dummy_123",
+        schoolId: school?.id || "s1",
+        admissionNumber: "ADM-2026-991",
+        rollNumber: "42",
+        name: "Aarav Sharma",
+        firstName: "Aarav",
+        lastName: "Sharma",
+        className: "Grade 10",
+        section: "A",
+        phone: "+91 98765 43210",
+        currentAddress: "123 Green Valley Road, Sector 4, New Delhi, India",
+        bloodGroup: "O+",
+        dob: "2011-05-15",
+        status: "Active",
+        currentSessionId: "session_2026",
+        gender: "Male",
+        fatherName: "Rajesh Sharma",
+        motherName: "Sunita Sharma"
+    };
+
 
     const schoolTemplates = templates.filter(t => t.schoolId === school?.id);
     const globalTemplates = templates.filter(t => {
@@ -320,6 +352,91 @@ export default function IDCardsPage() {
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'sample' | 'bg') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (type === 'sample') {
+                setAiImageBase64(reader.result as string);
+            } else {
+                setAiBgBase64(reader.result as string);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleAIAnalyze = async () => {
+        if (!aiImageBase64) {
+            toast.error("Please upload a sample ID card image.");
+            return;
+        }
+
+        setIsAIAnalyzing(true);
+        setAiResultTemplate(null);
+        
+        try {
+            setAiStage("Connecting to Google Gemini API...");
+            await new Promise(r => setTimeout(r, 600));
+            setAiStage("Detecting layout boundaries & grid...");
+            await new Promise(r => setTimeout(r, 600));
+            setAiStage("Analyzing photo/signature slots...");
+            await new Promise(r => setTimeout(r, 600));
+            setAiStage("Extracting labels (Name, Class, Roll Number)...");
+            
+            const res = await analyzeIDCardLayout(aiImageBase64, "card_sample.jpg", geminiKey || undefined);
+            if (res.success && res.template) {
+                // Attach background image if uploaded
+                const finalTemplate = {
+                    ...res.template,
+                    backgroundImage: aiBgBase64 || undefined
+                };
+                setAiResultTemplate(finalTemplate);
+                toast.success("AI Layout Analysis Complete!");
+            } else {
+                toast.error(res.error || "Failed to analyze template");
+            }
+        } catch (err: any) {
+            console.error('[handleAIAnalyze] error:', err);
+            toast.error(`Error: ${err?.message || String(err)}`);
+        } finally {
+            setIsAIAnalyzing(false);
+            setAiStage("");
+        }
+    };
+
+    const handleSaveAITemplate = async () => {
+        if (!aiResultTemplate) return;
+
+        try {
+            const finalTemplate: IDCardTemplate = {
+                ...(aiResultTemplate as IDCardTemplate),
+                id: 'new',
+                schoolId: school?.id || undefined,
+                isGlobal: false
+            };
+
+            const res = await addIDCardTemplate(finalTemplate);
+            if (res.success && res.template) {
+                setTemplates([...templates, res.template]);
+                setSelectedTemplate(res.template.id);
+                setActivePageTab('school-cards');
+                setIsAICreatorOpen(false);
+                setAiImageBase64(null);
+                setAiBgBase64(null);
+                setAiResultTemplate(null);
+                toast.success(`"${res.template.name}" added to your School ID Cards!`);
+            } else {
+                toast.error((res as any).error || 'Failed to save AI template');
+            }
+        } catch (error: any) {
+            console.error('[handleSaveAITemplate] error:', error);
+            toast.error(`Failed to save: ${error?.message || String(error)}`);
+        }
+    };
+
+
     // Filters for Generate tab
     const filteredGenerateStudents = students.filter(s => {
         const matchesClass = selectedClass === "all" || s.className === selectedClass;
@@ -551,12 +668,20 @@ export default function IDCardsPage() {
                     <p className="text-slate-500">Generate and print student identity cards</p>
                 </div>
                 {activePageTab === 'school-cards' && schoolTemplates.length > 0 && (
-                    <Button 
-                        onClick={handleCreate}
-                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                    >
-                        <Plus className="h-4 w-4" /> Create Custom Design
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button 
+                            onClick={() => setIsAICreatorOpen(true)}
+                            className="gap-2 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:via-purple-700 hover:to-indigo-700 text-white font-bold shadow-md hover:shadow-lg transition-all duration-300"
+                        >
+                            <Sparkles className="h-4 w-4 text-white animate-pulse" /> Create with AI
+                        </Button>
+                        <Button 
+                            onClick={handleCreate}
+                            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                        >
+                            <Plus className="h-4 w-4" /> Create Custom Design
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -660,6 +785,12 @@ export default function IDCardsPage() {
                                 className="gap-2 border-slate-300"
                             >
                                 <Search className="h-4 w-4" /> Browse Global Templates
+                            </Button>
+                            <Button 
+                                onClick={() => setIsAICreatorOpen(true)}
+                                className="gap-2 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:via-purple-700 hover:to-indigo-700 text-white font-bold"
+                            >
+                                <Sparkles className="h-4 w-4 text-white animate-pulse" /> Create with AI
                             </Button>
                             <Button 
                                 onClick={handleCreate}
@@ -1002,6 +1133,185 @@ export default function IDCardsPage() {
                             Print Now
                         </Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* AI ID Card Creator Dialog */}
+            <Dialog open={isAICreatorOpen} onOpenChange={(open) => {
+                if (!open && !isAIAnalyzing) {
+                    setIsAICreatorOpen(false);
+                    setAiImageBase64(null);
+                    setAiBgBase64(null);
+                    setAiResultTemplate(null);
+                }
+            }}>
+                <DialogContent className="sm:max-w-[850px] w-full max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">
+                                <Sparkles className="h-5 w-5 animate-pulse" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-bold">Create ID Card Template with AI</DialogTitle>
+                                <DialogDescription>
+                                    Upload a sample card image. Gemini will automatically detect the layout and position photo & fields.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    {isAIAnalyzing ? (
+                        <div className="flex flex-col items-center justify-center p-12 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                            <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
+                            <div className="text-center">
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">Analyzing Layout...</h3>
+                                <p className="text-sm text-slate-500 mt-1 animate-pulse">{aiStage}</p>
+                            </div>
+                        </div>
+                    ) : aiResultTemplate ? (
+                        <div className="space-y-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Left Side: Original Image */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Original Sample</h4>
+                                    <div className="aspect-[3/2] w-full border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center relative">
+                                        <img 
+                                            src={aiImageBase64 || ""} 
+                                            alt="Original Sample" 
+                                            className="max-w-full max-h-full object-contain" 
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Reconstructed Live HTML Preview */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">AI Reconstructed Live Template</h4>
+                                    <div className="aspect-[3/2] w-full border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center relative p-2">
+                                        <IDCardPreview
+                                            student={dummyStudent}
+                                            template={aiResultTemplate as IDCardTemplate}
+                                            school={school}
+                                            scale={3.2}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Template successfully generated!</p>
+                                    <p className="text-xs text-slate-500">You can customize the layout further using the drag-and-drop designer after saving.</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" onClick={() => setAiResultTemplate(null)}>
+                                        Re-analyze
+                                    </Button>
+                                    <Button 
+                                        onClick={handleSaveAITemplate}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                                    >
+                                        Save Template
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Left Side: Sample ID Card Image */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-wider text-slate-500">1. Upload Sample Card (Filled)</label>
+                                    <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center bg-slate-50/50 hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-all relative">
+                                        {aiImageBase64 ? (
+                                            <div className="relative group aspect-[3/2] w-full max-w-[260px] mx-auto overflow-hidden rounded-lg border bg-white flex items-center justify-center">
+                                                <img src={aiImageBase64} alt="Sample Card" className="max-w-full max-h-full object-contain" />
+                                                <button 
+                                                    onClick={() => setAiImageBase64(null)}
+                                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity"
+                                                >
+                                                    Change Image
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 flex flex-col items-center">
+                                                <Upload className="h-8 w-8 text-slate-400 mb-2" />
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Drag & drop or click to upload</p>
+                                                <p className="text-xs text-slate-500 mt-1">Accepts PNG, JPG, or JPEG</p>
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                    onChange={(e) => handleFileChange(e, 'sample')}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Blank Background Image */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-wider text-slate-500">2. Upload Blank Background (Optional)</label>
+                                    <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center bg-slate-50/50 hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-all relative">
+                                        {aiBgBase64 ? (
+                                            <div className="relative group aspect-[3/2] w-full max-w-[260px] mx-auto overflow-hidden rounded-lg border bg-white flex items-center justify-center">
+                                                <img src={aiBgBase64} alt="Blank Background" className="max-w-full max-h-full object-contain" />
+                                                <button 
+                                                    onClick={() => setAiBgBase64(null)}
+                                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity"
+                                                >
+                                                    Change Image
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 flex flex-col items-center">
+                                                <Upload className="h-8 w-8 text-slate-400 mb-2" />
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Drag & drop or click to upload</p>
+                                                <p className="text-xs text-slate-500 mt-1">Clean background watermark / texture</p>
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                    onChange={(e) => handleFileChange(e, 'bg')}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 space-y-3">
+                                <div>
+                                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-1">
+                                        3. Gemini API Key (Optional)
+                                    </label>
+                                    <Input
+                                        type="password"
+                                        placeholder="Paste your Google Gemini API Key here (or leave blank if set in server .env)"
+                                        value={geminiKey}
+                                        onChange={(e) => setGeminiKey(e.target.value)}
+                                        className="font-mono bg-white"
+                                    />
+                                    <p className="text-[10px] text-slate-500 mt-1">
+                                        Your key is kept safe and never stored. Obtain a key from Google AI Studio.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2 border-t">
+                                <Button variant="outline" onClick={() => setIsAICreatorOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    className="gap-2 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold shadow-md hover:shadow-lg"
+                                    onClick={handleAIAnalyze}
+                                    disabled={!aiImageBase64}
+                                >
+                                    <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                                    Start AI Analysis
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 
