@@ -2143,18 +2143,23 @@ export async function getIDCardTemplates(schoolId?: string) {
 }
 
 export async function addIDCardTemplate(template: IDCardTemplate) {
-    const db = readDb();
-    if (!db.idCardTemplates) db.idCardTemplates = [];
+    try {
+        const db = readDb();
+        if (!db.idCardTemplates) db.idCardTemplates = [];
 
-    if (!template.id || template.id === 'new') {
-        template.id = `tmpl_${Date.now()}`;
+        if (!template.id || template.id === 'new') {
+            template.id = `tmpl_${Date.now()}`;
+        }
+
+        db.idCardTemplates.push(template);
+        writeDb(db);
+        revalidatePath('/super-admin/modules/id-cards');
+        revalidatePath('/school-admin/id-cards');
+        return { success: true, template };
+    } catch (error: any) {
+        console.error('[addIDCardTemplate] ERROR:', error?.message || error);
+        return { success: false, error: error?.message || String(error) };
     }
-
-    db.idCardTemplates.push(template);
-    writeDb(db);
-    revalidatePath('/super-admin/modules/id-cards');
-    revalidatePath('/school-admin/id-cards');
-    return { success: true, template };
 }
 
 export async function updateIDCardTemplate(updatedTemplate: IDCardTemplate) {
@@ -2172,17 +2177,22 @@ export async function updateIDCardTemplate(updatedTemplate: IDCardTemplate) {
 }
 
 export async function deleteIDCardTemplate(id: string) {
-    const db = readDb();
-    if (!db.idCardTemplates) return { success: false, error: 'No templates found' };
+    try {
+        const db = readDb();
+        if (!db.idCardTemplates) return { success: false, error: 'No templates found' };
 
-    const index = db.idCardTemplates.findIndex((t: any) => t.id === id);
-    if (index === -1) return { success: false, error: 'Template not found' };
+        const index = db.idCardTemplates.findIndex((t: any) => t.id === id);
+        if (index === -1) return { success: false, error: 'Template not found' };
 
-    db.idCardTemplates.splice(index, 1);
-    writeDb(db);
-    revalidatePath('/super-admin/modules/id-cards');
-    revalidatePath('/school-admin/id-cards');
-    return { success: true };
+        db.idCardTemplates.splice(index, 1);
+        writeDb(db);
+        revalidatePath('/super-admin/modules/id-cards');
+        revalidatePath('/school-admin/id-cards');
+        return { success: true };
+    } catch (error: any) {
+        console.error('[deleteIDCardTemplate] ERROR:', error?.message || error);
+        return { success: false, error: error?.message || String(error) };
+    }
 }
 
 // --- STAFF FORM TEMPLATES ---

@@ -245,9 +245,12 @@ export default function IDCardsPage() {
                         }
                     }
                     toast.success('Template deleted');
+                } else {
+                    toast.error((res as any).error || 'Failed to delete template');
                 }
-            } catch (error) {
-                toast.error('Failed to delete template');
+            } catch (error: any) {
+                console.error('[handleDelete] error:', error);
+                toast.error(`Failed to delete: ${error?.message || String(error)}`);
             }
         }
     };
@@ -309,9 +312,12 @@ export default function IDCardsPage() {
                 setSelectedTemplate(res.template.id);
                 setActivePageTab('school-cards');
                 toast.success(`"${tmpl.name}" added to your School ID Cards!`);
+            } else {
+                toast.error((res as any).error || 'Failed to add template to school');
             }
-        } catch (error) {
-            toast.error('Failed to add template to school');
+        } catch (error: any) {
+            console.error('[handleAddToSchool] error:', error);
+            toast.error(`Failed to add template: ${error?.message || String(error)}`);
         }
     };
 
