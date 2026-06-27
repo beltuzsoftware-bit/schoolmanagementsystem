@@ -3769,10 +3769,7 @@ Guidelines:
             }
           ]
         }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
+      ]
     };
 
     console.log('[analyzeIDCardLayout] Sending request to Gemini...');
@@ -3795,7 +3792,12 @@ Guidelines:
       return { success: false, error: 'Gemini returned an empty response.' };
     }
 
-    const cleanedText = rawText.trim();
+    let cleanedText = rawText.trim();
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '');
+    }
+    cleanedText = cleanedText.trim();
+
     console.log('[analyzeIDCardLayout] Parsing template JSON response...');
     const templateData = JSON.parse(cleanedText);
 
