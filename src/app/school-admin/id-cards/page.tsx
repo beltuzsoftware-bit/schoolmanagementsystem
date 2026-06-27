@@ -63,7 +63,12 @@ export default function IDCardsPage() {
     const [aiStage, setAiStage] = useState("");
     const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
     const [aiBgBase64, setAiBgBase64] = useState<string | null>(null);
-    const [geminiKey, setGeminiKey] = useState("");
+    const [geminiKey, setGeminiKey] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('kummi_gemini_key') || "";
+        }
+        return "";
+    });
     const [aiResultTemplate, setAiResultTemplate] = useState<Partial<IDCardTemplate> | null>(null);
 
     const dummyStudent: Student = {
@@ -1288,7 +1293,10 @@ export default function IDCardsPage() {
                                         type="password"
                                         placeholder="Paste your Google Gemini API Key here (or leave blank if set in server .env)"
                                         value={geminiKey}
-                                        onChange={(e) => setGeminiKey(e.target.value)}
+                                        onChange={(e) => { 
+                                            setGeminiKey(e.target.value); 
+                                            localStorage.setItem('kummi_gemini_key', e.target.value);
+                                        }}
                                         className="font-mono bg-white"
                                     />
                                     <p className="text-[10px] text-slate-500 mt-1">
