@@ -3772,12 +3772,14 @@ Guidelines:
 
     // Sequential fallback configs to ensure we match a supported version/model for the user's project
     const configs = [
+      { url: 'v1/models/gemini-2.5-flash', name: 'gemini-2.5-flash (v1)' },
+      { url: 'v1/models/gemini-2.0-flash', name: 'gemini-2.0-flash (v1)' },
+      { url: 'v1/models/gemini-3.5-flash', name: 'gemini-3.5-flash (v1)' },
+      { url: 'v1/models/gemini-2.5-pro', name: 'gemini-2.5-pro (v1)' },
+      { url: 'v1/models/gemini-2.0-flash-lite', name: 'gemini-2.0-flash-lite (v1)' },
       { url: 'v1/models/gemini-1.5-flash', name: 'gemini-1.5-flash (v1)' },
       { url: 'v1/models/gemini-1.5-flash-latest', name: 'gemini-1.5-flash-latest (v1)' },
-      { url: 'v1beta/models/gemini-1.5-flash', name: 'gemini-1.5-flash (v1beta)' },
-      { url: 'v1/models/gemini-1.5-pro', name: 'gemini-1.5-pro (v1)' },
-      { url: 'v1/models/gemini-1.5-pro-latest', name: 'gemini-1.5-pro-latest (v1)' },
-      { url: 'v1beta/models/gemini-1.5-flash-latest', name: 'gemini-1.5-flash-latest (v1beta)' }
+      { url: 'v1beta/models/gemini-1.5-flash', name: 'gemini-1.5-flash (v1beta)' }
     ];
 
     let lastError = '';
