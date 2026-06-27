@@ -3713,7 +3713,7 @@ export async function analyzeIDCardLayout(
 
   try {
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const prompt = `
 You are a professional graphic layout parser. Analyze this ID card image and extract its visual design and coordinates for reconstruction.
