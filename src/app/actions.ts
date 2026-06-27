@@ -3714,15 +3714,15 @@ export async function analyzeIDCardLayout(
   try {
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
     const prompt = `
-You are a professional graphic layout parser. Analyze this ID card image and extract its visual design and coordinates for reconstruction.
+You are a professional graphic layout parser. Analyze this ID card image and extract its visual design, colors, and precise element coordinates for reconstruction.
 Return a valid JSON object matching the following structure:
 
 {
   "layout": "vertical" or "horizontal",
-  "width": number (percentage of standard card size width in mm; vertical is 54, horizontal is 86),
-  "height": number (percentage of standard card size height in mm; vertical is 86, horizontal is 54),
-  "primaryColor": "hex string",
-  "secondaryColor": "hex string",
+  "width": number (54 for vertical, 86 for horizontal),
+  "height": number (86 for vertical, 54 for horizontal),
+  "primaryColor": "hex string (main theme color, e.g. blue or red)",
+  "secondaryColor": "hex string (secondary color)",
   "textColor": "hex string",
   "borderRadius": "none" | "sm" | "md" | "lg" | "full",
   "canvasElements": [
@@ -3733,7 +3733,7 @@ Return a valid JSON object matching the following structure:
       "y": number (percentage of card height 0 to 100),
       "width": number (percentage of card width 0 to 100),
       "height": number (percentage of card height 0 to 100),
-      "fontSize": number (font size, typically between 8 and 24),
+      "fontSize": number (font size, typically between 8 and 18),
       "fontWeight": "normal" | "bold",
       "color": "hex string",
       "align": "left" | "center" | "right",
@@ -3744,14 +3744,21 @@ Return a valid JSON object matching the following structure:
   ]
 }
 
-Guidelines:
-1. Ensure 'x' and 'y' represent the absolute top-left coordinates as a percentage of the entire card's width and height.
-2. If the photo or text fields are located inside a card body (like below a header of height ~22%), make sure 'y' is calculated relative to the absolute top of the card.
-3. Detect the student's photo slot and map it as type: "photo". Standard vertical width=30, height=35.
-4. Detect signature slot if present and map it as type: "signature".
-5. Detect barcode or QR code if present and map it as type: "qrcode".
-6. Detect all text fields. If a field represents a student property (like Name, Roll No, Class, Address, Phone, Date of Birth), use type: "field" and map it to the correct fieldKey from the list above. Preserve the visual label (e.g. 'Class :') in fieldLabel.
-7. Return ONLY the raw JSON object. Do not include markdown code block formatting (like \`\`\`json).
+Strict Layout Rules for Reconstructing the Original Image:
+1. Visual Dimensions:
+   - For vertical layout (width 54, height 86), the student photo is always a circle or square near the center-top.
+   - Set the photo element coordinates precisely to avoid overlaps: typically x: 36, y: 20, width: 28, height: 18.
+2. Vertical Spacing:
+   - Text fields must be ordered vertically from top to bottom.
+   - The Student Name should be placed below the photo (typically y: 46, height: 6). It must have fontWeight: "bold" and align: "center".
+   - The Class/Section should be placed below the name (typically y: 53, height: 5), align: "center".
+   - Other fields (admission, roll, dob, phone, address) should be placed below that, starting around y: 60, with a vertical gap of 5-6% between successive fields to prevent overlapping.
+3. Field Alignment:
+   - If fields are centered, set align: "center".
+   - If fields have small icons on the left, align them left starting at x: 10, with width: 80.
+4. Colors:
+   - Extract the predominant brand/school colors for primaryColor and secondaryColor from the card's header or background design.
+5. Return ONLY the raw JSON object. Do not include markdown code block formatting (like \`\`\`json).
 `;
 
     const payload = {
