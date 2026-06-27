@@ -230,30 +230,29 @@ export default function IDCardsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Are you sure you want to delete this template?')) {
-            try {
-                const res = await deleteIDCardTemplate(id);
-                if (res.success) {
-                    const remaining = templates.filter(t => t.id !== id);
-                    setTemplates(remaining);
-                    if (selectedTemplate === id) {
-                        const remainingSchool = remaining.filter(t => t.schoolId === school?.id);
-                        if (remainingSchool.length > 0) {
-                            setSelectedTemplate(remainingSchool[0].id);
-                        } else {
-                            setSelectedTemplate('');
-                        }
+        try {
+            const res = await deleteIDCardTemplate(id);
+            if (res.success) {
+                const remaining = templates.filter(t => t.id !== id);
+                setTemplates(remaining);
+                if (selectedTemplate === id) {
+                    const remainingSchool = remaining.filter(t => t.schoolId === school?.id);
+                    if (remainingSchool.length > 0) {
+                        setSelectedTemplate(remainingSchool[0].id);
+                    } else {
+                        setSelectedTemplate('');
                     }
-                    toast.success('Template deleted');
-                } else {
-                    toast.error((res as any).error || 'Failed to delete template');
                 }
-            } catch (error: any) {
-                console.error('[handleDelete] error:', error);
-                toast.error(`Failed to delete: ${error?.message || String(error)}`);
+                toast.success('Template deleted successfully');
+            } else {
+                toast.error((res as any).error || 'Failed to delete template');
             }
+        } catch (error: any) {
+            console.error('[handleDelete] error:', error);
+            toast.error(`Failed to delete: ${error?.message || String(error)}`);
         }
     };
+
 
     const handleToggleDefault = async (tmpl: IDCardTemplate) => {
         try {
