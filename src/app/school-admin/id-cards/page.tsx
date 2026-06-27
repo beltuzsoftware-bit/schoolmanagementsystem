@@ -372,6 +372,65 @@ export default function IDCardsPage() {
         reader.readAsDataURL(file);
     };
 
+    const cleanBackgroundImage = (originalBase64: string, elements: any[]): Promise<string> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = originalBase64;
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    resolve(originalBase64);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0);
+
+                // Erase old student elements from the background template
+                elements.forEach((el) => {
+                    const x = (el.x / 100) * canvas.width;
+                    const y = (el.y / 100) * canvas.height;
+                    const w = (el.width / 100) * canvas.width;
+                    const h = (el.height / 100) * canvas.height;
+
+                    // Sample the surrounding background color just outside the boundary
+                    let bgStyle = "#ffffff";
+                    const samplePoints = [
+                        { px: x - 8, py: y + h / 2 },
+                        { px: x + w + 8, py: y + h / 2 },
+                        { px: x + w / 2, py: y - 8 },
+                        { px: x + w / 2, py: y + h + 8 }
+                    ];
+
+                    for (const pt of samplePoints) {
+                        if (pt.px >= 0 && pt.px < canvas.width && pt.py >= 0 && pt.py < canvas.height) {
+                            try {
+                                const pixel = ctx.getImageData(Math.floor(pt.px), Math.floor(pt.py), 1, 1).data;
+                                if (pixel[3] > 10) { // check opacity/transparency
+                                    bgStyle = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                                    break;
+                                }
+                            } catch (e) {
+                                console.error("Sampling error:", e);
+                            }
+                        }
+                    }
+
+                    // Fill a rectangle with padding to cleanly cover text/photo edges
+                    ctx.fillStyle = bgStyle;
+                    ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+                });
+
+                resolve(canvas.toDataURL("image/jpeg", 0.95));
+            };
+            img.onerror = () => {
+                resolve(originalBase64);
+            };
+        });
+    };
+
     const handleAIAnalyze = async () => {
         if (!aiImageBase64) {
             toast.error("Please upload a sample ID card image.");
@@ -392,10 +451,22 @@ export default function IDCardsPage() {
             
             const res = await analyzeIDCardLayout(aiImageBase64, "card_sample.jpg", geminiKey || undefined);
             if (res.success && res.template) {
-                // Attach background image if uploaded
+                let finalBg = aiBgBase64 || undefined;
+                
+                // If the user didn't upload a blank background, clean the original card automatically!
+                if (!finalBg && aiImageBase64) {
+                    setAiStage("Cleaning old photo & text from background...");
+                    await new Promise(r => setTimeout(r, 400));
+                    try {
+                        finalBg = await cleanBackgroundImage(aiImageBase64, res.template.canvasElements || []);
+                    } catch (cleanErr) {
+                        console.error("Clean background failed:", cleanErr);
+                    }
+                }
+
                 const finalTemplate = {
                     ...res.template,
-                    backgroundImage: aiBgBase64 || undefined
+                    backgroundImage: finalBg
                 };
                 setAiResultTemplate(finalTemplate);
                 toast.success("AI Layout Analysis Complete!");
