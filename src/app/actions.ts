@@ -3819,7 +3819,29 @@ Guidelines:
     }
 
     if (!successJson) {
-      return { success: false, error: `Gemini API failed after trying all standard model configurations. Last error details: ${lastError}` };
+      try {
+        const diagUrl = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+        const diagRes = await fetch(diagUrl);
+        const diagJson = await diagRes.json();
+        console.error('[analyzeIDCardLayout] Diagnostic ListModels response:', JSON.stringify(diagJson));
+        
+        if (diagJson.error) {
+          return {
+            success: false,
+            error: `Google API Diagnostic Error: ${diagJson.error.message || JSON.stringify(diagJson.error)} (Code ${diagJson.error.code})`
+          };
+        }
+        
+        return {
+          success: false,
+          error: `Google API returned 404. Accessible models catalog: ${JSON.stringify(diagJson.models?.map((m: any) => m.name.split('/').pop()) || diagJson)}`
+        };
+      } catch (diagErr: any) {
+        return {
+          success: false,
+          error: `Gemini API failed, diagnostic check failed: ${diagErr?.message || String(diagErr)}. Last error: ${lastError}`
+        };
+      }
     }
 
     let cleanedText = successJson.trim();
