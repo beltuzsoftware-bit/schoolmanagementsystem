@@ -19,8 +19,7 @@ import {
 import { IdCard, Printer, Search, User, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getIDCardTemplates, getSchools, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate } from "@/app/actions";
-import { analyzeIDCardLayout } from "@/app/actions/ai-actions";
+import { getIDCardTemplates, getSchools, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout } from "@/app/actions";
 import { IDCardTemplate, School, Student } from "@/types";
 import { IDCardPreview } from "@/components/id-cards/id-card-preview";
 import IDCardTemplateEditor from "@/components/super-admin/id-card-template-editor";
