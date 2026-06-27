@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kummi-school-system
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data.json:/app/data.json
+    environment:
+      - PORT=3000
+      - NODE_ENV=production

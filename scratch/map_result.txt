@@ -1,0 +1,10 @@
+--- Database Map ---
+Line 140: Found schools
+Line 577: Found sessions
+Line 1620: Found packages
+Line 2121: Found attendance
+Line 2242: Found students
+Line 38406: Found packages
+Line 38407: Found sessions
+Line 38412: Found students
+--- End of Map ---

@@ -1,0 +1,419 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  ROOT
+  STAFF
+  STUDENT
+  PARENT
+}
+
+enum SectionType {
+  Personal
+  Address
+  Bank
+  Experience
+  Documents
+  Employment
+  Salary
+  Login
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String?
+  role        UserRole @default(STAFF)
+  schoolId    String?
+  avatar      String?
+  designation String?
+  status      String?  @default("Active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School?  @relation(fields: [schoolId], references: [id])
+}
+
+model School {
+  id                    String   @id @default(uuid())
+  name                  String
+  schoolId              String   @unique
+  code                  String
+  address               String
+  contactNumber         String
+  email                 String
+  logo                  String?
+  packageId             String
+  maxStudents           Int?
+  isActive              Boolean  @default(true)
+  
+  // Simple Settings
+  currentSession        String?
+  tagline               String?
+  shortName             String?
+  affiliation           String?
+  affiliationCode       String?
+  udise                 String?
+  city                  String?
+  state                 String?
+  pincode               String?
+  country               String?
+  currency              String?  @default("INR")
+  language              String?  @default("English")
+  establishedYear       String?
+  about                 String?
+  
+  // Custom Config Toggles
+  useCustomClasses      Boolean  @default(false)
+  useCustomSections     Boolean  @default(false)
+  useCustomHouses       Boolean  @default(false)
+  useCustomReligions    Boolean  @default(false)
+  useCustomCategories   Boolean  @default(false)
+  useCustomStreams      Boolean  @default(false)
+  useCustomIdSettings   Boolean  @default(false)
+  useCustomDisableReasons Boolean @default(false)
+  useCustomLanguages    Boolean  @default(false)
+  
+  // Configuration Data (Json)
+  classes               Json?    // Array of ClassSetup
+  sections              Json?    // Array of strings
+  houses                Json?    // Array of strings
+  religions             Json?    // Array of strings
+  categories            Json?    // Array of strings
+  streams               Json?    // Array of strings
+  disableReasons        String[] @default(["Parent Request", "Transfer", "Fees Pending", "Other"])
+  sessionStartMonth     Int      @default(4) // Default to April
+  languages             Json?    // Array of strings or object containing custom settings
+  accessories           Json?
+  feeCollectionTemplate String?
+  accessoryTemplateId   String?
+
+
+
+  // ID Generation Settings (Json)
+  regNoSettings         Json?
+  enrollNoSettings      Json?
+  apaarIdSettings       Json?
+  penNoSettings         Json?
+  srNoSettings          Json?
+  genRegNoSettings      Json?
+  rollNoSettings        Json?
+
+  // Admission & Profile Config
+  admissionFormTemplateId   String?
+  admissionFieldOverrides   Json?
+  studentProfileTemplateId  String?
+  onlineAdmissionOpen       Boolean  @default(false)
+  admissionPaymentEnabled   Boolean  @default(false)
+  admissionFeeAmount        Float    @default(0)
+  requireAdmissionDocs      Boolean  @default(false)
+
+  // Visuals & Branding
+  watermark             String?
+  signature             String?
+  qrCode                String?
+  upiId                 String?
+  defaultPaymentMode    String?  @default("Cash")
+
+  // Additional Fields
+  contactPerson         String?
+  landline              String?
+  whatsapp              String?
+  website               String?
+  feeDiscounts          Json?
+  feeReminders          Json?
+  weekOff               String?
+  gstNo                 String?
+  admissionNote         String?
+
+  
+  users                 User[]
+  students              Student[]
+  sessions              Session[]
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  schoolId    String
+  name        String
+  startDate   String?
+  endDate     String?
+  isCurrent   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  status      String   @default("Active")
+  
+  school      School   @relation(fields: [schoolId], references: [id])
+}
+
+model Student {
+  id                String   @id @default(uuid())
+  schoolId          String
+  
+  // Admission Details
+  admissionNumber   String
+  rollNumber        String?
+  name              String
+  firstName         String
+  lastName          String?
+  className         String
+  section           String?
+  admissionDate     String?
+  photo             String?
+  status            String   @default("Active")
+  currentSessionId  String?
+  
+  // Archival Metadata
+  disableReason     String?
+  disableDate       String?
+  disableNote       String?
+  enableNote        String?
+  
+  // Extended Fields
+  apaarId           String?
+  penNo             String?
+  registrationNo    String?
+  enrollmentNo      String?
+  srNo              String?
+  generalRegistrationNo String?
+  classAppliedFor   String?
+  stream            String?
+  rte               String?   @default("No")
+  enrolledSession   String?
+  house             String?
+  studentType       String?   @default("New")
+  
+  // Personal Details
+  dob               String?
+  gender            String?
+  bloodGroup        String?
+  religion          String?
+  category          String?
+  caste             String?
+  nationality       String?   @default("Indian")
+  firstLanguage     String?
+  secondLanguage    String?
+  thirdLanguage     String?
+  height            String?
+  weight            String?
+  
+  // Contact Info
+  phone             String?   // Student/Primary Mobile
+  whatsappNo        String?
+  email             String?
+  aadhaarNo         String?   
+  samagraId         String?
+  
+  // Bank Details
+  bankAccountNo     String?
+  ifscCode          String?
+  bankName          String?
+  accountHolderName String?
+  
+  // Exit Records
+  tcNo              String?
+  tcDate            String?
+  tcFile            String?
+  previousSchool    String?
+  
+// Parent & Guardian Details
+  fatherName        String?
+  fatherPhone       String?
+  fatherOccupation  String?
+  fatherEmail      String?
+  fatherPhoto     String?
+  motherName      String?
+  motherPhone     String?
+  motherOccupation String?
+  motherEmail     String?
+  motherPhoto    String?
+  guardianName      String?
+  guardianPhone     String?
+  guardianRelation  String?
+  guardianOccupation String?
+  guardianAddress   String?
+  guardianPhoto   String?
+  
+  // Address
+  currentAddress    String?
+  permanentAddress  String?
+  village           String?
+  locality          String?
+  postOffice        String?
+  policeStation     String?
+  city              String?
+  district          String?
+  state             String?
+  pincode           String?
+  country           String?
+  permanentVillage       String?
+  permanentLocality      String?
+  permanentPostOffice    String?
+  permanentPoliceStation String?
+  permanentDistrict      String?
+  permanentCity          String?
+  permanentState         String?
+  permanentPincode       String?
+  permanentCountry       String?
+  
+  // New Fields from CSV
+  enrolledYear      String?
+  referredBy        String?
+  specialNeeds      String?   @default("No")
+  specialNeedsDetails String?
+  guardianEmail     String?
+  previousLastClass String?
+  affiliatedBoard   String?
+  marksObtained     String?
+  percentageCGPA    String?
+  result            String?
+  recordDateHeightWeight String?
+  fatherDocumentName   String?
+  fatherDocumentFile String?
+  motherDocumentName String?
+  motherDocumentFile String?
+  guardianDocumentName String?
+  guardianDocumentFile String?
+  
+  // Login Info (Optional)
+  parentUsername    String?
+  studentUsername   String?
+  loginPassword     String?
+  parentPasswordChanged Boolean @default(false)
+
+  school            School   @relation(fields: [schoolId], references: [id])
+  transactions      FeeTransaction[]
+  documents         StudentDocument[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([schoolId, admissionNumber])
+  @@index([schoolId])
+  @@index([phone])
+}
+
+model StudentDocument {
+  id          String   @id @default(uuid())
+  studentId   String
+  title       String
+  file        String   // Filename or path
+  content     String?  // Base64 or text content
+  type        String?  // 'Official' or 'Misc'
+  fieldName   String?  // For official docs like 'aadhaarFront'
+  
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model GlobalStudentDefaults {
+  id                String   @id @default("global-singleton")
+  classes           Json?
+  sections          Json?
+  houses            Json?
+  religions         Json?
+  categories        Json?
+  streams           Json?
+  disableReasons    String[] @default(["Graduated", "Expelled", "Transfer", "Other"])
+  regNoSettings     Json?
+  enrollNoSettings  Json?
+  apaarIdSettings   Json?
+  penNoSettings     Json?
+  srNoSettings      Json?
+  genRegNoSettings  Json?
+  rollNoSettings    Json?
+  sessions          Json?
+  languages         Json?
+  updatedAt         DateTime @updatedAt
+}
+
+model StudentProfileTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  thumbnail   String?
+  config      Json
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AdmissionFormTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  thumbnail   String?
+  config      Json
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeeTransaction {
+  id              String   @id @default(uuid())
+  schoolId        String
+  studentId       String
+  amount          Float
+  month           String
+  status          String   @default("Pending")
+  transactionId   String?  @unique
+  paymentMode     String?
+  remarks         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student         Student  @relation(fields: [studentId], references: [id])
+}
+
+model SaasPackage {
+  id                 String   @id @default(uuid())
+  name               String
+  price              Float
+  color              String?
+  description        String?
+  maxStudents        Int
+  duration           Int      @default(1)
+  modules            String[] // Array of enabled module IDs
+  staffFormTemplateId String?
+  admissionFormTemplateId String?
+  qrTransactionLimit Int      @default(0)
+  transactionRate    Float    @default(0)
+  accessoryTemplateId String?
+  createdAt          DateTime @default(now())
+}
+
+model StaffFormTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  config      Json
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model IdCardTemplate {
+  id              String   @id @default(uuid())
+  name            String
+  layout          String   @default("vertical") // horizontal or vertical
+  width           Float    @default(54)
+  height          Float    @default(86)
+  primaryColor    String?
+  secondaryColor  String?
+  fontFamily      String?
+  backgroundImage String?
+  showPhoto       Boolean  @default(true)
+  showLogo        Boolean  @default(true)
+  signatureText   String?
+  fields          Json     // Array of field objects
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+

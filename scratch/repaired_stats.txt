@@ -1,0 +1,7 @@
+{
+  "schools": 2,
+  "students": 770,
+  "packages": 1,
+  "sessions": 2,
+  "attendance": 0
+}

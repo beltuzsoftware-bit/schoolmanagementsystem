@@ -1,0 +1,15 @@
+import prisma from './src/lib/prisma.ts';
+
+async function main() {
+  const schools = await prisma.school.findMany();
+  console.log(JSON.stringify(schools, null, 2));
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

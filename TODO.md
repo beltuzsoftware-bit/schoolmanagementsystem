@@ -1,0 +1,4 @@
+- [x] Update `src/components/school-admin/text-input.tsx` to support hiding label on focus.
+- [x] Apply hide-label-on-focus behavior to Admission Details text inputs in `src/components/school-admin/student-registration-form.tsx`.
+- [x] Run a quick type/lint check for the updated files.
+- [x] Mark all completed steps.

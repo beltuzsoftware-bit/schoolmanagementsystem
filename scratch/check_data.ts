@@ -1,0 +1,36 @@
+
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  const schoolId = 's_1776494594378'
+  
+  console.log('--- Sessions ---')
+  const sessions = await prisma.session.findMany({
+    where: { schoolId: schoolId }
+  })
+  console.log(JSON.stringify(sessions, null, 2))
+
+  console.log('\n--- Students ---')
+  const students = await prisma.student.findMany({
+    where: { schoolId: schoolId }
+  })
+  console.log(JSON.stringify(students.map(s => ({
+    id: s.id,
+    name: s.name,
+    admissionNumber: s.admissionNumber,
+    currentSessionId: s.currentSessionId,
+    enrolledSession: s.enrolledSession,
+    status: s.status
+  })), null, 2))
+}
+
+main()
+  .catch(e => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
