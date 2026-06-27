@@ -3713,8 +3713,6 @@ export async function analyzeIDCardLayout(
 
   try {
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
     const prompt = `
 You are a professional graphic layout parser. Analyze this ID card image and extract its visual design and coordinates for reconstruction.
 Return a valid JSON object matching the following structure:
@@ -3772,27 +3770,59 @@ Guidelines:
       ]
     };
 
-    console.log('[analyzeIDCardLayout] Sending request to Gemini...');
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // Sequential fallback configs to ensure we match a supported version/model for the user's project
+    const configs = [
+      { url: 'v1/models/gemini-1.5-flash', name: 'gemini-1.5-flash (v1)' },
+      { url: 'v1/models/gemini-1.5-flash-latest', name: 'gemini-1.5-flash-latest (v1)' },
+      { url: 'v1beta/models/gemini-1.5-flash', name: 'gemini-1.5-flash (v1beta)' },
+      { url: 'v1/models/gemini-1.5-pro', name: 'gemini-1.5-pro (v1)' },
+      { url: 'v1/models/gemini-1.5-pro-latest', name: 'gemini-1.5-pro-latest (v1)' },
+      { url: 'v1beta/models/gemini-1.5-flash-latest', name: 'gemini-1.5-flash-latest (v1beta)' }
+    ];
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[analyzeIDCardLayout] Gemini error response:', errorText);
-      return { success: false, error: `Gemini API error (Status ${res.status}): ${errorText}` };
+    let lastError = '';
+    let successJson = null;
+
+    for (const config of configs) {
+      console.log(`[analyzeIDCardLayout] Attempting model config: ${config.name}...`);
+      const url = `https://generativelanguage.googleapis.com/${config.url}:generateContent?key=${apiKey}`;
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.warn(`[analyzeIDCardLayout] Config ${config.name} returned status ${res.status}:`, errText);
+          lastError = `Status ${res.status}: ${errText}`;
+          continue; // Try next model config
+        }
+
+        const json = await res.json();
+        const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) {
+          console.warn(`[analyzeIDCardLayout] Config ${config.name} returned empty text parts`);
+          lastError = 'Empty response text parts';
+          continue;
+        }
+
+        successJson = rawText;
+        console.log(`[analyzeIDCardLayout] Config ${config.name} SUCCEEDED!`);
+        break; // Stop loop, we succeeded
+      } catch (err: any) {
+        console.warn(`[analyzeIDCardLayout] Config ${config.name} connection error:`, err?.message || String(err));
+        lastError = err?.message || String(err);
+      }
     }
 
-    const json = await res.json();
-    const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) {
-      console.error('[analyzeIDCardLayout] Empty response text');
-      return { success: false, error: 'Gemini returned an empty response.' };
+    if (!successJson) {
+      return { success: false, error: `Gemini API failed after trying all standard model configurations. Last error details: ${lastError}` };
     }
 
-    let cleanedText = rawText.trim();
+    let cleanedText = successJson.trim();
     if (cleanedText.startsWith('```')) {
       cleanedText = cleanedText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '');
     }
