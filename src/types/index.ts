@@ -198,7 +198,7 @@ export interface StaffRole {
 
 // --- ID CARD MODULE ---
 
-export type IDCardElementShape = 'circle' | 'oval' | 'square' | 'rectangle';
+export type IDCardElementShape = 'circle' | 'oval' | 'square' | 'rectangle' | 'rounded';
 
 export interface IDCardCanvasElement {
     id: string;
@@ -261,7 +261,7 @@ export interface IDCardTemplate {
     photoPosition?: {
         x: number; y: number;
         width?: number; height?: number;
-        shape?: IDCardElementShape; // circle | oval | square | rectangle
+        shape?: IDCardElementShape; // circle | oval | square | rectangle | rounded
         borderColor?: string;
         borderWidth?: number;
     };

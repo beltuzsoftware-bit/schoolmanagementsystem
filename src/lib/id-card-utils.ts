@@ -12,16 +12,19 @@ export function getShapeStyle(shape: IDCardElementShape | undefined): React.CSSP
             return { borderRadius: '50%', aspectRatio: '3 / 4' };
         case 'square':
             return { borderRadius: '8px', aspectRatio: '1 / 1' };
+        case 'rounded':
+            return { borderRadius: '12px' };
         case 'rectangle':
         default:
-            return { borderRadius: '6px' };
+            return { borderRadius: '4px' };
     }
 }
 
 /** Shape display names and icons for the shape picker UI. */
 export const SHAPE_OPTIONS: { value: IDCardElementShape; label: string; icon: string }[] = [
-    { value: 'rectangle', label: 'Rectangle', icon: '▭' },
-    { value: 'square',    label: 'Square',    icon: '□' },
-    { value: 'oval',      label: 'Oval',      icon: '⬭' },
-    { value: 'circle',    label: 'Circle',    icon: '◯' },
+    { value: 'rectangle', label: 'Rectangle',    icon: '▭' },
+    { value: 'rounded',   label: 'Rounded',      icon: '▢' },
+    { value: 'square',    label: 'Square',       icon: '□' },
+    { value: 'oval',      label: 'Oval',         icon: '⬭' },
+    { value: 'circle',    label: 'Circle',       icon: '◯' },
 ];

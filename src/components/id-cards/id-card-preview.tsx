@@ -555,7 +555,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                                     width: `${pp.width ?? 28}%`,
                                     height: `${pp.height ?? 26}%`,
                                     border: `${pp.borderWidth ?? 2}px solid ${pp.borderColor ?? template.primaryColor}`,
-                                    ...getShapeStyle(pp.shape),
+                                    ...getShapeStyle(pp.shape ?? 'rounded'),
                                 }}
                             >
                                 {student.photo
@@ -623,7 +623,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                                     width: `${scale * (isVertical ? 22 : 20)}px`,
                                     height: `${scale * (isVertical ? 22 : 20)}px`,
                                     border: `${pp.borderWidth ?? 2}px solid ${pp.borderColor ?? template.primaryColor}`,
-                                    ...getShapeStyle(pp.shape ?? (isVertical ? 'circle' : 'rectangle')),
+                                    ...getShapeStyle(pp.shape ?? (isVertical ? 'circle' : 'rounded')),
                                 }}
                             >
                                 {student.photo
