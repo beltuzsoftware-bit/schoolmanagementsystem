@@ -533,6 +533,9 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                                             transformOrigin: 'center center',
                                             // Fixed elements (photo, QR) clip their content cleanly
                                             overflow: isFixedEl ? 'hidden' : 'visible',
+                                            // For photo: pass the same borderRadius to the outer wrapper so
+                                            // overflow:hidden clips with rounded corners, not a sharp rectangle
+                                            ...(el.type === 'photo' ? getShapeStyle(el.shape ?? 'rounded') : {}),
                                             display: 'flex',
                                             flexDirection: 'column',
                                         }}

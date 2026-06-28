@@ -277,11 +277,14 @@ export default function StudentsPage() {
                     if (!matchesKeyword) return false;
                 }
 
-                // Class filter
+                // Class filter — exact match only to prevent "VII" from matching "VIII"
                 if (classFilter !== 'Select' && classFilter !== 'all') {
                     const target = classFilter.toLowerCase().trim();
                     const studentClass = (student.className || (student as any).class || '').toLowerCase().trim();
-                    if (studentClass !== target && !studentClass.includes(target) && !target.includes(studentClass)) return false;
+                    // Strip leading "class " prefix from both sides for a normalized exact comparison
+                    const normalizedTarget = target.replace(/^class\s+/i, '').trim();
+                    const normalizedClass = studentClass.replace(/^class\s+/i, '').trim();
+                    if (normalizedClass !== normalizedTarget) return false;
                 }
 
                 // Section filter
@@ -788,10 +791,11 @@ export default function StudentsPage() {
                                         <TableRow className="hover:bg-transparent border-none">
                                             <TableHead className="w-[40px] py-4">
                                                 <Checkbox 
-                                                    checked={pagedStudents.length > 0 && selectedIds.length === pagedStudents.length}
+                                                    checked={sortedStudents.length > 0 && selectedIds.length === sortedStudents.length}
                                                     onCheckedChange={(checked) => {
                                                         if (checked) {
-                                                            setSelectedIds(pagedStudents.map(s => s.id));
+                                                            // Select ALL filtered students, not just the current page
+                                                            setSelectedIds(sortedStudents.map(s => s.id));
                                                         } else {
                                                             setSelectedIds([]);
                                                         }
