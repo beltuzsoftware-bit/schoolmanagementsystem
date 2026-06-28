@@ -643,21 +643,27 @@ export default function IDCardsPage() {
                     const student = studentsToZip[i];
                     if (!student) continue;
 
-                    const SCALE = 3;
+                    const SCALE = 4;
 
-                    // Collect all <img> elements and their positions BEFORE hiding them
+                    // Collect all <img> elements, their positions, AND their parent's border-radius
                     const photoImgs = Array.from(wrapper.querySelectorAll('img')) as HTMLImageElement[];
                     const wrapperRect = wrapper.getBoundingClientRect();
 
                     // Record each photo's position relative to the card wrapper
                     const photoPositions = photoImgs.map(img => {
                         const r = img.getBoundingClientRect();
+                        // Read border-radius from the overflow:hidden parent (the shape wrapper div)
+                        const parentEl = img.parentElement;
+                        const computedBR = parentEl
+                            ? parseFloat(getComputedStyle(parentEl).borderRadius) || 0
+                            : 0;
                         return {
                             src: img.src,
                             x: r.left - wrapperRect.left,
                             y: r.top - wrapperRect.top,
                             w: r.width,
                             h: r.height,
+                            borderRadius: computedBR,
                         };
                     });
 
@@ -700,6 +706,8 @@ export default function IDCardsPage() {
                         const py = pos.y * SCALE;
                         const pw = pos.w * SCALE;
                         const ph = pos.h * SCALE;
+                        // Scale border-radius to match canvas scale
+                        const br = pos.borderRadius * SCALE;
 
                         const imgScale = Math.max(pw / photo.naturalWidth, ph / photo.naturalHeight);
                         const dw = photo.naturalWidth * imgScale;
@@ -709,7 +717,23 @@ export default function IDCardsPage() {
 
                         ctx.save();
                         ctx.beginPath();
-                        ctx.rect(px, py, pw, ph);
+                        // Use rounded rectangle clipping to match CSS border-radius
+                        if (br > 0 && typeof ctx.roundRect === 'function') {
+                            ctx.roundRect(px, py, pw, ph, br);
+                        } else {
+                            // Fallback for browsers without roundRect: manual arc corners
+                            const r = Math.min(br, pw / 2, ph / 2);
+                            ctx.moveTo(px + r, py);
+                            ctx.lineTo(px + pw - r, py);
+                            ctx.arcTo(px + pw, py, px + pw, py + r, r);
+                            ctx.lineTo(px + pw, py + ph - r);
+                            ctx.arcTo(px + pw, py + ph, px + pw - r, py + ph, r);
+                            ctx.lineTo(px + r, py + ph);
+                            ctx.arcTo(px, py + ph, px, py + ph - r, r);
+                            ctx.lineTo(px, py + r);
+                            ctx.arcTo(px, py, px + r, py, r);
+                            ctx.closePath();
+                        }
                         ctx.clip();
                         ctx.drawImage(photo, dx, dy, dw, dh);
                         ctx.restore();
