@@ -143,11 +143,10 @@ const SingleReceipt = ({
                 </div>
             </div>
         </div>
-    );
-};
-
-export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose }: InventoryReceiptModalProps) {
+ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose }: InventoryReceiptModalProps) {
     if (!invoice || !student) return null;
+
+    const isHuge = invoice.items.length > 3;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200 print-modal-wrapper">
@@ -157,6 +156,9 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                     <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                         <CheckCircle2 className="text-emerald-500 h-5 w-5" />
                         <span>Sales Invoice Preview</span>
+                        <span className="text-[10px] font-normal px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded ml-2">
+                            {isHuge ? 'A5 Portrait (2 Pages)' : 'A5 Landscape (Dual Copy)'}
+                        </span>
                     </h2>
                     <div className="flex gap-3">
                         <button 
@@ -202,21 +204,35 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                             }
                             #inventory-receipt-print {
                                 position: relative !important;
-                                width: 210mm !important;
-                                max-width: 210mm !important;
+                                width: ${isHuge ? '148.5mm' : '210mm'} !important;
+                                max-width: ${isHuge ? '148.5mm' : '210mm'} !important;
                                 height: auto !important;
                                 background: white !important;
                             }
                             .no-print { display: none !important; }
-                            @page { size: A5 landscape; margin: 3mm; }
+                            @page { size: ${isHuge ? 'A5 portrait' : 'A5 landscape'}; margin: 3mm; }
+
+                            /* Page break rule for huge layouts */
+                            .print-page-break {
+                                page-break-after: always;
+                                break-after: page;
+                            }
                         }
                     `}</style>
 
-                    <div id="inventory-receipt-print" className="w-full max-w-[210mm] bg-white text-black shadow-lg mx-auto print:shadow-none">
-                        <div className="flex flex-col lg:flex-row print:flex-row flex-wrap lg:flex-nowrap print:flex-nowrap w-full">
+                    <div id="inventory-receipt-print" className="w-full bg-white text-black shadow-lg mx-auto print:shadow-none" style={{ maxWidth: isHuge ? '148.5mm' : '210mm' }}>
+                        <div className={cn(
+                            "flex w-full flex-col",
+                            isHuge 
+                                ? "print:flex-col" 
+                                : "lg:flex-row print:flex-row flex-wrap lg:flex-nowrap print:flex-nowrap"
+                        )}>
                             
                             {/* OFFICE COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0">
+                            <div className={isHuge 
+                                ? "w-full lg:w-1/2 print:w-full p-6 print:p-4 print-page-break lg:border-r border-dashed border-gray-400 print:border-none"
+                                : "w-full lg:w-1/2 print:w-1/2 p-6 print:p-2 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0"
+                            }>
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}
@@ -225,12 +241,18 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                                 />
                             </div>
 
-                            <div className="hidden lg:flex print:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print">
+                            <div className={cn(
+                                "hidden lg:flex print:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print",
+                                isHuge && "print:hidden"
+                            )}>
                                 <Scissors size={14} className="rotate-90 text-gray-500" />
                             </div>
                             
                             {/* STUDENT COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2">
+                            <div className={isHuge
+                                ? "w-full lg:w-1/2 print:w-full p-6 print:p-4"
+                                : "w-full lg:w-1/2 print:w-1/2 p-6 print:p-2"
+                            }>
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}
@@ -238,11 +260,9 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                                     copyType="Student Copy"
                                 />
                             </div>
-
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
     );
 }
