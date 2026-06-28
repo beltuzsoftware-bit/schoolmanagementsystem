@@ -354,7 +354,7 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
     const { flatFees, grandTotalPaid, grandTotalDue, grandOverallDiscount, grandTotalLineDiscount, invoiceMode, invoiceRemarks, invoiceTransactionId } = getFlattenedInvoiceData();
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200 print-modal-wrapper">
             <div className="bg-slate-100 rounded-lg shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden">
                 
                 {/* Application Header Actions */}
@@ -380,21 +380,43 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                     
                     <style jsx global>{`
                         @media print {
-                            body * { visibility: hidden; }
-                            #printable-dual {
-                                visibility: visible !important;
-                                position: absolute;
-                                left: 0;
-                                top: 0;
-                                width: 100%;
+                            html, body {
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                height: auto !important;
                             }
-                            #printable-dual * { visibility: visible; }
+                            body * { 
+                                visibility: hidden; 
+                            }
+                            body > * {
+                                height: 0 !important;
+                                min-height: 0 !important;
+                            }
+                            .print-modal-wrapper,
+                            .print-modal-wrapper * { 
+                                visibility: visible !important; 
+                            }
+                            .print-modal-wrapper {
+                                position: absolute !important;
+                                left: 0 !important;
+                                top: 0 !important;
+                                width: 100% !important;
+                                height: auto !important;
+                                display: block !important;
+                                background: white !important;
+                            }
+                            #printable-dual {
+                                position: relative !important;
+                                width: 100% !important;
+                                height: auto !important;
+                                background: white !important;
+                            }
                             
                             .no-print { display: none !important; }
                             
                             /* Flexible Print Logic */
                             @page {
-                                size: auto; /* Browser decides or user sets via print dialog */
+                                size: landscape;
                                 margin: 5mm; 
                             }
                             

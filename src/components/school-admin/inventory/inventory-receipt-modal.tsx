@@ -150,9 +150,9 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
     if (!invoice || !student) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200 print-modal-wrapper">
             <div className="bg-slate-100 rounded-lg shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden">
-                
+                 
                 <div className="flex justify-between items-center px-4 sm:px-6 py-3 bg-white border-b border-gray-200 shrink-0 no-print">
                     <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                         <CheckCircle2 className="text-emerald-500 h-5 w-5" />
@@ -175,17 +175,39 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                     
                     <style jsx global>{`
                         @media print {
-                            body * { visibility: hidden; }
-                            #inventory-receipt-print {
-                                visibility: visible !important;
-                                position: absolute;
-                                left: 0;
-                                top: 0;
-                                width: 100%;
+                            html, body {
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                height: auto !important;
                             }
-                            #inventory-receipt-print * { visibility: visible; }
+                            body * { 
+                                visibility: hidden; 
+                            }
+                            body > * {
+                                height: 0 !important;
+                                min-height: 0 !important;
+                            }
+                            .print-modal-wrapper,
+                            .print-modal-wrapper * { 
+                                visibility: visible !important; 
+                            }
+                            .print-modal-wrapper {
+                                position: absolute !important;
+                                left: 0 !important;
+                                top: 0 !important;
+                                width: 100% !important;
+                                height: auto !important;
+                                display: block !important;
+                                background: white !important;
+                            }
+                            #inventory-receipt-print {
+                                position: relative !important;
+                                width: 100% !important;
+                                height: auto !important;
+                                background: white !important;
+                            }
                             .no-print { display: none !important; }
-                            @page { size: auto; margin: 5mm; }
+                            @page { size: landscape; margin: 5mm; }
                         }
                     `}</style>
 
