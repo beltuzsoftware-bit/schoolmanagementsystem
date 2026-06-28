@@ -2200,3 +2200,103 @@ export async function recordBulkStockInward(data: {
         }
     }
 }
+
+export async function syncSimpleCatalogToInventory(schoolId: string) {
+    if (!schoolId) return { success: false, error: 'School ID required' };
+    try {
+        const acc = await getSchoolAccessories(schoolId);
+        
+        // Simple catalog items
+        const simpleItems = Array.isArray(acc.items) ? acc.items : [];
+        
+        // Advanced catalog items
+        const advancedProducts = Array.isArray(acc.inventoryProducts) ? [...acc.inventoryProducts] : [];
+        const vendors = Array.isArray(acc.vendors) ? [...acc.vendors] : [];
+        const stockTransactions = Array.isArray(acc.stockTransactions) ? [...acc.stockTransactions] : [];
+        
+        let importCount = 0;
+        let vendorCount = 0;
+
+        for (const item of simpleItems) {
+            // Check if product already exists in advanced catalog (case-insensitive)
+            const exists = advancedProducts.some(p => p.name.toLowerCase() === item.name.toLowerCase());
+            if (!exists) {
+                const productId = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Add product
+                advancedProducts.push({
+                    id: productId,
+                    schoolId,
+                    name: item.name,
+                    category: item.category || 'General',
+                    sku: item.sku || `SKU-${item.name.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+                    buyPrice: item.buyRate || 0,
+                    sellPrice: item.sellRate || 0,
+                    currentStock: item.availableQuantity || item.totalQuantity || 0,
+                    minStockThreshold: item.thresholdQuantity || 5,
+                    unit: 'Pcs',
+                    description: item.description || '',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+
+                importCount++;
+
+                // Record opening stock transaction if stock > 0
+                const qty = item.availableQuantity || item.totalQuantity || 0;
+                if (qty > 0) {
+                    stockTransactions.push({
+                        id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        schoolId,
+                        productId,
+                        type: 'INWARD',
+                        quantity: qty,
+                        rate: item.buyRate || 0,
+                        totalAmount: qty * (item.buyRate || 0),
+                        entityName: item.vendorDetails || 'Opening Stock',
+                        notes: 'Imported from Simple Catalog',
+                        createdAt: new Date().toISOString(),
+                        recordedBy: 'SYSTEM'
+                    });
+                }
+
+                // Add Vendor if listed
+                if (item.vendorDetails && item.vendorDetails.trim() !== '') {
+                    const vendorExists = vendors.some(v => v.name.toLowerCase() === item.vendorDetails.toLowerCase());
+                    if (!vendorExists) {
+                        vendors.push({
+                            id: `vend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            schoolId,
+                            name: item.vendorDetails,
+                            contactPerson: '',
+                            phone: '',
+                            email: '',
+                            address: '',
+                            createdAt: new Date().toISOString()
+                        });
+                        vendorCount++;
+                    }
+                }
+            }
+        }
+
+        if (importCount > 0) {
+            await updateSchoolAccessories(schoolId, {
+                inventoryProducts: advancedProducts,
+                vendors,
+                stockTransactions
+            });
+            revalidatePath('/school-admin/inventory');
+        }
+
+        return { 
+            success: true, 
+            importedCount: importCount, 
+            importedVendorsCount: vendorCount 
+        };
+    } catch (e: any) {
+        console.error("Failed to sync simple catalog to inventory:", e);
+        return { success: false, error: e.message || 'Unknown error' };
+    }
+}
+

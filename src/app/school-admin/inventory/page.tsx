@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { getInventoryProducts, deleteInventoryProduct } from '@/app/actions/inventory';
+import { getInventoryProducts, deleteInventoryProduct, syncSimpleCatalogToInventory } from '@/app/actions/inventory';
 import { AddProductModal } from '@/components/school-admin/inventory/add-product-modal';
 import { EditProductModal } from '@/components/school-admin/inventory/edit-product-modal';
 import { StockInwardModal } from '@/components/school-admin/inventory/stock-inward-modal';
@@ -85,6 +85,29 @@ export default function InventoryDashboard() {
     
     // Edit Invoice State
     const [editInvoiceData, setEditInvoiceData] = useState<any>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleSyncSimpleCatalog = async () => {
+        if (!school?.id) return;
+        setIsSyncing(true);
+        try {
+            const res = await syncSimpleCatalogToInventory(school.id);
+            if (res.success) {
+                if (res.importedCount! > 0) {
+                    toast.success(`Successfully synchronized ${res.importedCount} items and ${res.importedVendorsCount} suppliers from the simple catalog!`);
+                    loadData();
+                } else {
+                    toast.info("All items from the simple catalog are already present in the advanced inventory database.");
+                }
+            } else {
+                toast.error(res.error || "Synchronization failed");
+            }
+        } catch (err) {
+            toast.error("An unexpected error occurred during sync");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const loadData = async () => {
         const storedUser = localStorage.getItem('kummi_user');
@@ -275,14 +298,28 @@ export default function InventoryDashboard() {
                             <Package className="h-5 w-5 text-indigo-600" />
                             Items
                         </h2>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="text-xs font-bold text-indigo-600"
-                        >
-                            <Plus className="h-4 w-4 mr-1" /> Add New Product
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={handleSyncSimpleCatalog}
+                                disabled={isSyncing}
+                                className="text-xs font-bold text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 flex items-center gap-1.5"
+                            >
+                                {isSyncing ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-emerald-600"></div>
+                                ) : "⚡"}
+                                Sync from Simple Catalog
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setIsAddModalOpen(true)}
+                                className="text-xs font-bold text-indigo-600"
+                            >
+                                <Plus className="h-4 w-4 mr-1" /> Add New Product
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Stats Overview */}
