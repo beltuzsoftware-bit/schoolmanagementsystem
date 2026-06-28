@@ -143,7 +143,10 @@ const SingleReceipt = ({
                 </div>
             </div>
         </div>
- export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose }: InventoryReceiptModalProps) {
+    );
+};
+
+export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose }: InventoryReceiptModalProps) {
     if (!invoice || !student) return null;
 
     const isHuge = invoice.items.length > 3;
