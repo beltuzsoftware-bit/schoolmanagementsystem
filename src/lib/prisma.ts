@@ -122,6 +122,18 @@ function resolveRelations(item: any, modelName: string, db: any, include: any): 
                 copy.school = (db.schools || []).find((s: any) => s.id === item.schoolId);
             }
         }
+
+        if (collectionName === 'inventoryProducts') {
+            if (key === 'transactions') {
+                copy.transactions = (db.stockTransactions || []).filter((t: any) => t.productId === item.id);
+            }
+        }
+
+        if (collectionName === 'purchaseInvoices') {
+            if (key === 'transactions') {
+                copy.transactions = (db.stockTransactions || []).filter((t: any) => t.purchaseInvoiceId === item.id);
+            }
+        }
     });
     
     return copy;

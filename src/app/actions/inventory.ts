@@ -2235,12 +2235,26 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
                     currentStock: itemStock,
                     updatedAt: new Date().toISOString()
                 };
+
+                // Write directly to Prisma too!
+                try {
+                    await prisma.inventoryProduct.updateMany({
+                        where: { name: { equals: item.name }, schoolId },
+                        data: {
+                            category: item.category || 'General',
+                            buyPrice: itemBuyPrice,
+                            sellPrice: itemSellPrice,
+                            currentStock: itemStock
+                        }
+                    });
+                } catch (err) {
+                    console.warn("Failed to update product in prisma during sync:", err);
+                }
+
                 importCount++;
             } else {
                 const productId = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                
-                // Add new product
-                advancedProducts.push({
+                const newProdObj = {
                     id: productId,
                     schoolId,
                     name: item.name,
@@ -2254,13 +2268,25 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
                     description: item.description || '',
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
-                });
+                };
+
+                // Add to array for JSON update
+                advancedProducts.push(newProdObj);
+
+                // Write directly to Prisma too!
+                try {
+                    await prisma.inventoryProduct.create({
+                        data: newProdObj
+                    });
+                } catch (err) {
+                    console.warn("Failed to create product in prisma during sync:", err);
+                }
 
                 importCount++;
 
                 // Record opening stock transaction if stock > 0
                 if (itemStock > 0) {
-                    stockTransactions.push({
+                    const newTxObj = {
                         id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         schoolId,
                         productId,
@@ -2272,7 +2298,17 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
                         notes: 'Imported from Simple Catalog',
                         createdAt: new Date().toISOString(),
                         recordedBy: 'SYSTEM'
-                    });
+                    };
+
+                    stockTransactions.push(newTxObj);
+
+                    try {
+                        await prisma.stockTransaction.create({
+                            data: newTxObj as any
+                        });
+                    } catch (err) {
+                        console.warn("Failed to create stock transaction in prisma during sync:", err);
+                    }
                 }
             }
 
@@ -2280,7 +2316,7 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
             if (item.vendorDetails && item.vendorDetails.trim() !== '') {
                 const vendorExists = vendors.some(v => v.name.toLowerCase() === item.vendorDetails.toLowerCase());
                 if (!vendorExists) {
-                    vendors.push({
+                    const newVendorObj = {
                         id: `vend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         schoolId,
                         name: item.vendorDetails,
@@ -2289,7 +2325,20 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
                         email: '',
                         address: '',
                         createdAt: new Date().toISOString()
-                    });
+                    };
+
+                    vendors.push(newVendorObj);
+
+                    try {
+                        if ((prisma as any).vendor) {
+                            await (prisma as any).vendor.create({
+                                data: newVendorObj
+                            });
+                        }
+                    } catch (err) {
+                        console.warn("Failed to create vendor in prisma during sync:", err);
+                    }
+
                     vendorCount++;
                 }
             }
