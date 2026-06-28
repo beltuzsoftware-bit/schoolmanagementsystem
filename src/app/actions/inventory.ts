@@ -2218,21 +2218,37 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
         let vendorCount = 0;
 
         for (const item of simpleItems) {
-            // Check if product already exists in advanced catalog (case-insensitive)
-            const exists = advancedProducts.some(p => p.name.toLowerCase() === item.name.toLowerCase());
-            if (!exists) {
+            const itemBuyPrice = Number(item.buyPrice || item.buyRate || 0);
+            const itemSellPrice = Number(item.sellPrice || item.sellRate || 0);
+            const itemStock = Number(item.availableQuantity || item.totalQuantity || 0);
+            
+            // Find if product already exists in advanced catalog (case-insensitive)
+            const existingIndex = advancedProducts.findIndex(p => p.name.toLowerCase() === item.name.toLowerCase());
+            
+            if (existingIndex !== -1) {
+                // Update existing item with correct prices and stock
+                advancedProducts[existingIndex] = {
+                    ...advancedProducts[existingIndex],
+                    category: item.category || advancedProducts[existingIndex].category || 'General',
+                    buyPrice: itemBuyPrice,
+                    sellPrice: itemSellPrice,
+                    currentStock: itemStock,
+                    updatedAt: new Date().toISOString()
+                };
+                importCount++;
+            } else {
                 const productId = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 
-                // Add product
+                // Add new product
                 advancedProducts.push({
                     id: productId,
                     schoolId,
                     name: item.name,
                     category: item.category || 'General',
                     sku: item.sku || `SKU-${item.name.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-                    buyPrice: item.buyRate || 0,
-                    sellPrice: item.sellRate || 0,
-                    currentStock: item.availableQuantity || item.totalQuantity || 0,
+                    buyPrice: itemBuyPrice,
+                    sellPrice: itemSellPrice,
+                    currentStock: itemStock,
                     minStockThreshold: item.thresholdQuantity || 5,
                     unit: 'Pcs',
                     description: item.description || '',
@@ -2243,39 +2259,38 @@ export async function syncSimpleCatalogToInventory(schoolId: string) {
                 importCount++;
 
                 // Record opening stock transaction if stock > 0
-                const qty = item.availableQuantity || item.totalQuantity || 0;
-                if (qty > 0) {
+                if (itemStock > 0) {
                     stockTransactions.push({
                         id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         schoolId,
                         productId,
                         type: 'INWARD',
-                        quantity: qty,
-                        rate: item.buyRate || 0,
-                        totalAmount: qty * (item.buyRate || 0),
+                        quantity: itemStock,
+                        rate: itemBuyPrice,
+                        totalAmount: itemStock * itemBuyPrice,
                         entityName: item.vendorDetails || 'Opening Stock',
                         notes: 'Imported from Simple Catalog',
                         createdAt: new Date().toISOString(),
                         recordedBy: 'SYSTEM'
                     });
                 }
+            }
 
-                // Add Vendor if listed
-                if (item.vendorDetails && item.vendorDetails.trim() !== '') {
-                    const vendorExists = vendors.some(v => v.name.toLowerCase() === item.vendorDetails.toLowerCase());
-                    if (!vendorExists) {
-                        vendors.push({
-                            id: `vend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                            schoolId,
-                            name: item.vendorDetails,
-                            contactPerson: '',
-                            phone: '',
-                            email: '',
-                            address: '',
-                            createdAt: new Date().toISOString()
-                        });
-                        vendorCount++;
-                    }
+            // Add Vendor if listed
+            if (item.vendorDetails && item.vendorDetails.trim() !== '') {
+                const vendorExists = vendors.some(v => v.name.toLowerCase() === item.vendorDetails.toLowerCase());
+                if (!vendorExists) {
+                    vendors.push({
+                        id: `vend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        schoolId,
+                        name: item.vendorDetails,
+                        contactPerson: '',
+                        phone: '',
+                        email: '',
+                        address: '',
+                        createdAt: new Date().toISOString()
+                    });
+                    vendorCount++;
                 }
             }
         }
