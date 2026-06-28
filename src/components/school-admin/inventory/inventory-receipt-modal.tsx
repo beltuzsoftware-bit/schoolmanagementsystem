@@ -202,20 +202,21 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                             }
                             #inventory-receipt-print {
                                 position: relative !important;
-                                width: 100% !important;
+                                width: 210mm !important;
+                                max-width: 210mm !important;
                                 height: auto !important;
                                 background: white !important;
                             }
                             .no-print { display: none !important; }
-                            @page { size: landscape; margin: 5mm; }
+                            @page { size: A5 landscape; margin: 3mm; }
                         }
                     `}</style>
 
-                    <div id="inventory-receipt-print" className="w-full max-w-[297mm] bg-white text-black shadow-lg mx-auto print:shadow-none">
+                    <div id="inventory-receipt-print" className="w-full max-w-[210mm] bg-white text-black shadow-lg mx-auto print:shadow-none">
                         <div className="flex flex-col lg:flex-row print:flex-row flex-wrap lg:flex-nowrap print:flex-nowrap w-full">
                             
                             {/* OFFICE COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0">
+                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0">
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}
@@ -224,12 +225,12 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                                 />
                             </div>
 
-                            <div className="hidden lg:flex print:flex absolute left-1/2 top-4 bottom-4 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print">
+                            <div className="hidden lg:flex print:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print">
                                 <Scissors size={14} className="rotate-90 text-gray-500" />
                             </div>
                             
                             {/* STUDENT COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6">
+                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2">
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}

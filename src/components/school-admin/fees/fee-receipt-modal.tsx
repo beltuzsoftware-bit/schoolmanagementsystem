@@ -361,7 +361,7 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                 <div className="flex justify-between items-center px-4 sm:px-6 py-3 bg-white border-b border-gray-200 shrink-0 no-print">
                     <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                         <span>Receipt Preview</span>
-                        <span className="text-[10px] font-normal px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded">Landscape A4 / Portrait A5</span>
+                        <span className="text-[10px] font-normal px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded">A5 Landscape (Dual Copy)</span>
                     </h2>
                     <div className="flex gap-3">
                         <button 
@@ -407,7 +407,8 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                             }
                             #printable-dual {
                                 position: relative !important;
-                                width: 100% !important;
+                                width: 210mm !important;
+                                max-width: 210mm !important;
                                 height: auto !important;
                                 background: white !important;
                             }
@@ -415,9 +416,11 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                             .no-print { display: none !important; }
                             
                             /* Flexible Print Logic */
-                            @page {
-                                size: landscape;
-                                margin: 5mm; 
+                            @media print {
+                                @page {
+                                    size: A5 landscape;
+                                    margin: 3mm; 
+                                }
                             }
                             
                             /* Side-by-side break rules */
@@ -428,12 +431,12 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                         }
                     `}</style>
 
-                    <div id="printable-dual" className="w-full max-w-[297mm] bg-white text-black shadow-lg mx-auto print:shadow-none">
+                    <div id="printable-dual" className="w-full max-w-[210mm] bg-white text-black shadow-lg mx-auto print:shadow-none">
                         
                         <div className="flex flex-col lg:flex-row print:flex-row flex-wrap lg:flex-nowrap print:flex-nowrap w-full">
                             
                             {/* OFFICE COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0 print-break-inside-avoid">
+                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2 lg:border-r border-dashed border-gray-400 print:border-r border-b lg:border-b-0 print:border-b-0 print-break-inside-avoid">
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}
@@ -450,12 +453,12 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
                             </div>
 
                             {/* Center scissor line for web-view clarity */}
-                            <div className="hidden lg:flex print:flex absolute left-1/2 top-4 bottom-4 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print">
+                            <div className="hidden lg:flex print:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col justify-center items-center gap-8 opacity-40 z-10 no-print">
                                 <Scissors size={14} className="rotate-90 text-gray-500" />
                             </div>
                             
                             {/* STUDENT COPY */}
-                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print-break-inside-avoid shadow-inner lg:shadow-none print:shadow-none">
+                            <div className="w-full lg:w-1/2 print:w-1/2 p-6 print:p-2 print-break-inside-avoid shadow-inner lg:shadow-none print:shadow-none">
                                 <SingleReceipt
                                     student={student}
                                     schoolDetails={schoolDetails}
