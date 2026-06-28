@@ -261,7 +261,7 @@ export default function CanvasEditor({
       x: isVertical ? 35 : 5, y: isVertical ? 12 : 20,
       width: isVertical ? 30 : 22, height: isVertical ? 24 : 42,
       rotation: 0, opacity: 1, zIndex: nextZ(),
-      shape: 'rectangle', borderColor: template.primaryColor, borderWidth: 2,
+      shape: 'rounded', borderColor: template.primaryColor, borderWidth: 2,
     };
     commit([...elements, el]);
     setSelected(el.id);
@@ -1550,6 +1550,7 @@ export default function CanvasEditor({
                           style={inputStyle}
                         >
                           <option value="rectangle">Rectangle</option>
+                          <option value="rounded">Rounded</option>
                           <option value="square">Square</option>
                           <option value="circle">Circle</option>
                           <option value="oval">Oval</option>
