@@ -7,6 +7,7 @@ import { Transaction, FeeGroup } from '@/types/fees';
 import { numberToWords } from '@/lib/number-to-words';
 import { SESSION_MONTHS, isFeeApplicableForMonth, calculateFineAmount } from '@/lib/fees-helper';
 import { StudentTransportFeeInfo } from '@/app/actions/transport';
+import { cn } from '@/lib/utils';
 
 interface FeeReceiptModalProps {
     transactions: Transaction[]; // Transactions being printed on this receipt

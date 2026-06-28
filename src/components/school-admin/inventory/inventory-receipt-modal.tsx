@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Printer, Scissors, CheckCircle2 } from 'lucide-react';
 import { Student, School } from '@/types';
 import { numberToWords } from '@/lib/number-to-words';
+import { cn } from '@/lib/utils';
 
 interface InventoryReceiptModalProps {
     invoice: any;
@@ -267,5 +268,6 @@ export function InventoryReceiptModal({ invoice, student, schoolDetails, onClose
                     </div>
                 </div>
             </div>
+        </div>
     );
 }

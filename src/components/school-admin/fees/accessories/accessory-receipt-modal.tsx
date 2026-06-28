@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Printer, Scissors } from 'lucide-react';
 import { Student, School, AccessorySale } from '@/types';
 import { numberToWords } from '@/lib/number-to-words';
+import { cn } from '@/lib/utils';
 
 interface AccessoryReceiptModalProps {
     sale: AccessorySale;
