@@ -45,11 +45,12 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
     m9: { title: 'QR Fee Collection', href: '/school-admin/qr-fees', icon: 'QrCode' },
     m10: { 
         title: 'Inventory', 
-        href: '/school-admin/fees/accessories', 
+        href: '/school-admin/inventory', 
         icon: 'ShoppingBag',
         children: [
-            { title: 'Inventory', href: '/school-admin/fees/accessories' },
-            { title: 'Student Purchase', href: '/school-admin/fees/accessories/sales' }
+            { title: 'Inventory List', href: '/school-admin/fees/accessories' },
+            { title: 'Student Purchase', href: '/school-admin/fees/accessories/sales' },
+            { title: 'Vendor & Purchase', href: '/school-admin/inventory' }
         ]
     },
     m12: {
