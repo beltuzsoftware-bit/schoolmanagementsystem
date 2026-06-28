@@ -1016,12 +1016,13 @@ export async function searchStudents(schoolId: string, filters: {
     const section = filters.sectionFilter || filters.section;
 
     if (rawClassName && rawClassName !== 'all' && rawClassName !== 'Select') {
-        // Handle "Class VIII" vs "VIII" mismatch
+        // Normalize both "VII" and "Class VII" to exact match to avoid
+        // "VII" partially matching "VIII" via contains
         const className = rawClassName.replace(/^Class\s+/i, '').trim();
         conditions.push({
             OR: [
-                { className: { contains: className, mode: 'insensitive' } },
-                { className: { contains: `Class ${className}`, mode: 'insensitive' } }
+                { className: { equals: className, mode: 'insensitive' } },
+                { className: { equals: `Class ${className}`, mode: 'insensitive' } }
             ]
         });
     }
