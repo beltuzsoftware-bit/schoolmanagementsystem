@@ -533,7 +533,7 @@ export default function StudentsPage() {
                                         </div>
                                         <div className="flex-1 min-w-0 w-full">
                                             <Label className="text-xs mb-1 block text-slate-500 font-semibold">Class <span className="text-rose-500">*</span></Label>
-                                            <Select value={classFilter} onValueChange={setClassFilter}>
+                                            <Select value={classFilter} onValueChange={(val) => { setClassFilter(val); setSectionFilter('Select'); }}>
                                                 <SelectTrigger className="w-full !h-10 bg-white border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm text-sm font-semibold">
                                                     <SelectValue placeholder="Select" />
                                                 </SelectTrigger>
