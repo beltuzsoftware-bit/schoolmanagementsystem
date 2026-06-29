@@ -239,6 +239,9 @@ export async function getSchools() {
     }));
 }
 
+
+
+
 export async function getSchool(id: string) {
     // Try UUID first, then the unique schoolId slug
     let school = await prisma.school.findUnique({
@@ -640,12 +643,25 @@ export async function manageSession(
 
 
 export async function getSchoolAdmin(schoolId: string) {
-    return prisma.user.findFirst({
-        where: {
-            schoolId: schoolId,
-            role: 'SCHOOL_ADMIN'
-        }
-    });
+    try {
+        const user = await prisma.user.findFirst({
+            where: { 
+                schoolId: schoolId,
+                role: 'SCHOOL_ADMIN'
+            }
+        });
+        if (user) return user;
+    } catch (e: any) {
+        console.warn('[HYBRID] Prisma getSchoolAdmin failed:', e.message);
+    }
+
+    const db = readDb();
+    const school = db.schools.find(s => s.id === schoolId);
+    if (!school || !school.admins || school.admins.length === 0) return null;
+
+    const adminEmail = school.admins[0];
+    const user = db.users.find(u => u.email === adminEmail);
+    return user || null;
 }
 
 // --- USERS (AUTH) ---
