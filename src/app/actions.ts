@@ -1368,8 +1368,13 @@ export async function addStudent(studentData: Partial<Student>) {
         }
     }
 
-    if (!studentData.admissionNumber) {
-        studentData.admissionNumber = studentData.registrationNo || `ADM-${Date.now()}`;
+    // Always keep admissionNumber in sync with registrationNo.
+    // registrationNo is the user-visible ID (e.g. REG-062); admissionNumber is the
+    // internal unique key used across fees, ID cards, QR codes etc. They must match.
+    if (studentData.registrationNo) {
+        studentData.admissionNumber = studentData.registrationNo;
+    } else if (!studentData.admissionNumber) {
+        studentData.admissionNumber = `ADM-${Date.now()}`;
     }
 
     const isDuplicate = await prisma.student.findUnique({
@@ -1711,6 +1716,11 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         if (VALID_STUDENT_FIELDS.has(key)) {
             updatedData[key] = (data as any)[key];
         }
+    }
+
+    // Keep admissionNumber in sync with registrationNo on every update
+    if (data.registrationNo !== undefined) {
+        updatedData.admissionNumber = data.registrationNo;
     }
 
     if (data.firstName !== undefined || data.lastName !== undefined) {
@@ -2472,6 +2482,7 @@ export async function getAdmissionFormConfigForSchool(schoolId: string) {
         }).sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0)),
         sectionSettings: (tmpl?.config as any)?.sectionSettings || [],
         idSettings: {
+            admissionNumber: school?.regNoSettings,  // Primary ID — always synced with registrationNo
             registrationNo: school?.regNoSettings,
             enrollmentNo: school?.enrollNoSettings,
             apaarId: school?.apaarIdSettings,

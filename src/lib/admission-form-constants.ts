@@ -2,6 +2,9 @@ import { StudentFormConfig } from "@/types";
 
 export const EXTRACTED_ADMISSION_FIELDS: StudentFormConfig[] = [
     // 1. Admission Details
+    // admissionNumber is the PRIMARY student ID — shown in the students list, fees, ID cards & QR codes.
+    // Always placed first so school staff can see and directly edit it.
+    { fieldName: 'admissionNumber', label: 'Admission Number', visible: true, required: true, sectionName: 'Admission Details', hasAutoManualToggle: true, orderIndex: -1 },
     { fieldName: 'registrationNo', label: 'Registration Number', visible: true, required: false, sectionName: 'Admission Details', hasAutoManualToggle: true, orderIndex: 0 },
     { fieldName: 'enrollmentNo', label: 'Enrollment Number', visible: true, required: false, sectionName: 'Admission Details', hasAutoManualToggle: true, orderIndex: 1 },
     { fieldName: 'apaarId', label: 'APAAR ID', visible: true, required: false, sectionName: 'Admission Details', hasAutoManualToggle: true, orderIndex: 2 },

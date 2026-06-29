@@ -33,7 +33,7 @@ interface AdmissionFieldConfigEditorProps {
 const FIELD_SECTIONS = [
     {
         title: 'Admission Details',
-        fields: ['registrationNo', 'enrollmentNo', 'apaarId', 'penNo', 'srNo', 'generalRegistrationNo', 'admissionDate', 'stream', 'classAppliedFor', 'enrolledYear', 'enrolledSession', 'className', 'section', 'rollNumber', 'house', 'rte', 'studentType', 'photo', 'firstLanguage', 'secondLanguage', 'thirdLanguage', 'referredBy', 'sibling']
+        fields: ['admissionNumber', 'registrationNo', 'enrollmentNo', 'apaarId', 'penNo', 'srNo', 'generalRegistrationNo', 'admissionDate', 'stream', 'classAppliedFor', 'enrolledYear', 'enrolledSession', 'className', 'section', 'rollNumber', 'house', 'rte', 'studentType', 'photo', 'firstLanguage', 'secondLanguage', 'thirdLanguage', 'referredBy', 'sibling']
     },
     {
         title: 'Personal Information',
