@@ -75,8 +75,8 @@ export default function SchoolAdminLayout({ children }: { children: React.ReactN
                         ];
 
                         const postModularItems = [
-                            ...(pkg?.modules.includes('m6') ? [{ title: 'Staff & Roles', href: '/school-admin/roles', icon: 'UserCog' }] : []),
-                            ...(pkg?.modules.includes('m11') ? [{ title: 'Reports', href: '/school-admin/reports', icon: 'FileText' }] : []),
+                            ...(activeModules.includes('m6') ? [{ title: 'Staff & Roles', href: '/school-admin/roles', icon: 'UserCog' }] : []),
+                            ...(activeModules.includes('m11') ? [{ title: 'Reports', href: '/school-admin/reports', icon: 'FileText' }] : []),
                             {
                                 title: 'Settings',
                                 href: '#',
