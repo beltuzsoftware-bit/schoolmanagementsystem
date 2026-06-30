@@ -11,21 +11,24 @@ export async function getSchoolSubscription(schoolId: string): Promise<SchoolSub
         const record = await (prisma as any).schoolSubscription.findUnique({
             where: { schoolId }
         });
-        if (!record) return null;
-        return {
-            ...record,
-            startDate: record.startDate?.toISOString?.() ?? record.startDate,
-            endDate: record.endDate?.toISOString?.() ?? record.endDate,
-            renewalDate: record.renewalDate?.toISOString?.() ?? record.renewalDate,
-            createdAt: record.createdAt?.toISOString?.() ?? record.createdAt,
-            updatedAt: record.updatedAt?.toISOString?.() ?? record.updatedAt,
-        } as SchoolSubscription;
+        if (record) {
+            return {
+                ...record,
+                startDate: record.startDate?.toISOString?.() ?? record.startDate,
+                endDate: record.endDate?.toISOString?.() ?? record.endDate,
+                renewalDate: record.renewalDate?.toISOString?.() ?? record.renewalDate,
+                createdAt: record.createdAt?.toISOString?.() ?? record.createdAt,
+                updatedAt: record.updatedAt?.toISOString?.() ?? record.updatedAt,
+            } as SchoolSubscription;
+        }
     } catch {
-        // Fallback: JSON db
-        const db = readDb() as any;
-        return db.schoolSubscriptions?.find((s: SchoolSubscription) => s.schoolId === schoolId) ?? null;
+        // Fallback catch
     }
+    // Fallback: JSON db
+    const db = readDb() as any;
+    return db.schoolSubscriptions?.find((s: SchoolSubscription) => s.schoolId === schoolId) ?? null;
 }
+
 
 // --- UPSERT (create or update) subscription for a school --------------------
 export async function upsertSchoolSubscription(
@@ -150,18 +153,21 @@ export async function createSubscriptionFromPackage(
 export async function getSchoolSubscriptions(): Promise<SchoolSubscription[]> {
     try {
         const records = await (prisma as any).schoolSubscription.findMany();
-        return records.map((r: any) => ({
-            ...r,
-            startDate: r.startDate?.toISOString?.() ?? r.startDate,
-            endDate: r.endDate?.toISOString?.() ?? r.endDate,
-            renewalDate: r.renewalDate?.toISOString?.() ?? r.renewalDate,
-            createdAt: r.createdAt?.toISOString?.() ?? r.createdAt,
-            updatedAt: r.updatedAt?.toISOString?.() ?? r.updatedAt,
-        })) as SchoolSubscription[];
+        if (records && records.length > 0) {
+            return records.map((r: any) => ({
+                ...r,
+                startDate: r.startDate?.toISOString?.() ?? r.startDate,
+                endDate: r.endDate?.toISOString?.() ?? r.endDate,
+                renewalDate: r.renewalDate?.toISOString?.() ?? r.renewalDate,
+                createdAt: r.createdAt?.toISOString?.() ?? r.createdAt,
+                updatedAt: r.updatedAt?.toISOString?.() ?? r.updatedAt,
+            })) as SchoolSubscription[];
+        }
     } catch {
-        const db = readDb() as any;
-        return db.schoolSubscriptions || [];
+        // Fallback catch
     }
+    const db = readDb() as any;
+    return db.schoolSubscriptions || [];
 }
 
 // --- GET packages with how many schools use each as a template ---------------
