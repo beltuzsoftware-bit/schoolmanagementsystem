@@ -31,6 +31,46 @@ import {
     INITIAL_ROLL_SETTINGS
 } from '@/lib/student-constants';
 
+// ─── PER-SCHOOL SUBSCRIPTION ACTIONS ─────────────────────────────────────────
+import {
+    getSchoolSubscription as getSub,
+    getSchoolSubscriptions as getSubs,
+    upsertSchoolSubscription as upsertSub,
+    createSubscriptionFromPackage as createSub,
+    getPackagesWithSchoolCount as getPkgsWithCount,
+    computeSubscriptionStatus as computeStatus,
+    migrateSchoolsToSubscriptions as migrate,
+} from '@/app/actions/subscriptions';
+
+export async function getSchoolSubscription(schoolId: string) {
+    return getSub(schoolId);
+}
+
+export async function getSchoolSubscriptions() {
+    return getSubs();
+}
+
+export async function upsertSchoolSubscription(schoolId: string, data: any) {
+    return upsertSub(schoolId, data);
+}
+
+export async function createSubscriptionFromPackage(schoolId: string, pkg: any, overrides?: any) {
+    return createSub(schoolId, pkg, overrides);
+}
+
+export async function getPackagesWithSchoolCount() {
+    return getPkgsWithCount();
+}
+
+export async function computeSubscriptionStatus(sub: any) {
+    return computeStatus(sub);
+}
+
+export async function migrateSchoolsToSubscriptions() {
+    return migrate();
+}
+
+
 /**
  * Merges a stored form configuration with the latest master field list.
  * This ensures new fields added to the codebase are available to all existing templates

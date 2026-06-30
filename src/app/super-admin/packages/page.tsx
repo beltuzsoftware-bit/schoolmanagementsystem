@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PACKAGES, MODULES } from '@/lib/mock-data';
-import { getPackages, addPackage, updatePackage, deletePackage, getStaffFormTemplates, getAdmissionFormTemplates } from '@/app/actions';
+import { getPackagesWithSchoolCount, addPackage, updatePackage, deletePackage, getStaffFormTemplates, getAdmissionFormTemplates } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,7 @@ export default function PackagesPage() {
 
     // Initial Load
     useEffect(() => {
-        getPackages().then(setPackages);
+        getPackagesWithSchoolCount().then(setPackages);
         getStaffFormTemplates().then(setFormTemplates);
         getAdmissionFormTemplates().then(setAdmTemplates);
     }, []);
@@ -72,7 +72,7 @@ export default function PackagesPage() {
             await addPackage(pkg);
         }
 
-        const updated = await getPackages();
+        const updated = await getPackagesWithSchoolCount();
         setPackages(updated);
 
         setNewPackage({ name: '', price: '', maxStudents: '500', duration: '1', modules: [], qrTransactionLimit: '100', transactionRate: '0' });
@@ -83,7 +83,7 @@ export default function PackagesPage() {
     const handleDeletePackage = async (id: string) => {
         if (confirm('Are you sure you want to delete this package?')) {
             await deletePackage(id);
-            const updated = await getPackages();
+            const updated = await getPackagesWithSchoolCount();
             setPackages(updated);
         }
     };
@@ -95,7 +95,7 @@ export default function PackagesPage() {
             name: `${pkg.name} (Copy)`
         };
         await addPackage(copyPkg);
-        const updated = await getPackages();
+        const updated = await getPackagesWithSchoolCount();
         setPackages(updated);
     };
 
@@ -296,7 +296,14 @@ export default function PackagesPage() {
                                     ₹{pkg.price}/{pkg.duration >= 12 ? 'yr' : 'mo'}
                                 </Badge>
                             </CardTitle>
-                            <CardDescription className="text-slate-500 font-medium italic">{pkg.description}</CardDescription>
+                            <CardDescription className="text-slate-500 font-medium italic flex items-center justify-between mt-1">
+                                <span>{pkg.description}</span>
+                                {pkg.schoolsCount !== undefined && (
+                                    <Badge variant="outline" className="ml-2 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                                        🏫 {pkg.schoolsCount} school{pkg.schoolsCount !== 1 ? 's' : ''}
+                                    </Badge>
+                                )}
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-1 space-y-5 pt-0">
                             <div className="grid grid-cols-1 gap-4">

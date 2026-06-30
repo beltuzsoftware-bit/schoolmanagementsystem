@@ -1,18 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSchools, addSchool, toggleSchoolStatus, getPackages, updateSchool, deleteSchool, getSchoolAdmin } from '@/app/actions';
+
+import { getSchools, addSchool, toggleSchoolStatus, getPackages, updateSchool, deleteSchool, getSchoolAdmin, getSchoolSubscription, getSchoolSubscriptions, upsertSchoolSubscription, createSubscriptionFromPackage, migrateSchoolsToSubscriptions } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, MoreHorizontal, Download, LogOut, ExternalLink } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Download, LogOut, ExternalLink, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { SchoolSubscription } from '@/types';
+import { MODULES } from '@/lib/mock-data';
 
 export default function SchoolsPage() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -26,15 +29,120 @@ export default function SchoolsPage() {
     const [printingSchool, setPrintingSchool] = useState<any>(null);
     const [errorMsg, setErrorMsg] = useState('');
 
+    // ─── SUBSCRIPTION STATE ───────────────────────────────────────────────────
+    const [isSubOpen, setIsSubOpen] = useState(false);
+    const [subSchool, setSubSchool] = useState<any>(null); // the school being managed
+    const [subData, setSubData] = useState<Partial<SchoolSubscription>>({
+        price: 0,
+        billingCycle: 'monthly',
+        maxStudents: 500,
+        qrTransactionLimit: 100,
+        modules: [],
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        renewalDate: '',
+        autoRenew: false,
+        status: 'Active',
+        notes: '',
+    });
+    const [subSaving, setSubSaving] = useState(false);
+
     // Initial Load
     useEffect(() => {
         const loadData = async () => {
-            const [s, p] = await Promise.all([getSchools(), getPackages()]);
-            setSchools(s);
+            // Automatically migrate any legacy package-based schools on load
+            await migrateSchoolsToSubscriptions();
+            
+            const [s, p, subs] = await Promise.all([getSchools(), getPackages(), getSchoolSubscriptions()]);
+            const schoolsWithSubs = s.map((sch: any) => ({
+                ...sch,
+                subscription: subs.find(sub => sub.schoolId === sch.id) || null
+            }));
+            setSchools(schoolsWithSubs);
             setPackages(p);
         };
         loadData();
     }, []);
+
+    // ─── SUBSCRIPTION HANDLERS ────────────────────────────────────────────────
+    const openManageSubscription = async (school: any) => {
+        setSubSchool(school);
+        const existing = await getSchoolSubscription(school.id);
+        if (existing) {
+            setSubData({
+                ...existing,
+                startDate: existing.startDate?.slice(0, 10),
+                endDate: existing.endDate?.slice(0, 10),
+                renewalDate: existing.renewalDate?.slice(0, 10) || '',
+            });
+        } else {
+            // Pre-fill from current package as template
+            const pkg = packages.find((p: any) => p.id === school.packageId);
+            const today = new Date().toISOString().slice(0, 10);
+            const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            setSubData({
+                price: pkg?.price ?? 0,
+                billingCycle: (pkg?.duration >= 12 ? 'yearly' : 'monthly') as any,
+                maxStudents: school.maxStudents ?? pkg?.maxStudents ?? 500,
+                qrTransactionLimit: pkg?.qrTransactionLimit ?? 100,
+                modules: pkg?.modules ?? [],
+                startDate: today,
+                endDate: nextYear,
+                renewalDate: '',
+                autoRenew: false,
+                status: 'Active',
+                templatePackageId: pkg?.id,
+                admissionFormTemplateId: pkg?.admissionFormTemplateId || '',
+                staffFormTemplateId: pkg?.staffFormTemplateId || '',
+                notes: '',
+            });
+        }
+        setIsSubOpen(true);
+    };
+
+    const handleSaveSubscription = async () => {
+        if (!subSchool) return;
+        setSubSaving(true);
+        try {
+            await upsertSchoolSubscription(subSchool.id, {
+                ...subData,
+                startDate: subData.startDate ? new Date(subData.startDate).toISOString() : undefined,
+                endDate: subData.endDate ? new Date(subData.endDate).toISOString() : undefined,
+                renewalDate: subData.renewalDate ? new Date(subData.renewalDate).toISOString() : undefined,
+            });
+            toast.success(`Subscription saved for ${subSchool.name}`);
+            setIsSubOpen(false);
+            
+            // Refresh schools list with new subscription data
+            const [updatedSchools, subs] = await Promise.all([getSchools(), getSchoolSubscriptions()]);
+            const schoolsWithSubs = updatedSchools.map((sch: any) => ({
+                ...sch,
+                subscription: subs.find(sub => sub.schoolId === sch.id) || null
+            }));
+            setSchools(schoolsWithSubs);
+        } catch (e) {
+            toast.error('Failed to save subscription');
+        } finally {
+            setSubSaving(false);
+        }
+    };
+
+    const toggleSubModule = (modId: string) => {
+        setSubData(prev => {
+            const mods = prev.modules ?? [];
+            return {
+                ...prev,
+                modules: mods.includes(modId) ? mods.filter(m => m !== modId) : [...mods, modId]
+            };
+        });
+    };
+
+    // Days remaining helper
+    const getDaysRemaining = (endDate?: string) => {
+        if (!endDate) return null;
+        const diff = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        return diff;
+    };
 
     // Filtering would be real in a full app
     const filteredSchools = schools.filter(s =>
@@ -89,8 +197,12 @@ export default function SchoolsPage() {
 
         if (result.success) {
             toast.success(editingId ? 'School updated' : 'School onboarded');
-            const updated = await getSchools();
-            setSchools(updated);
+            const [updated, subs] = await Promise.all([getSchools(), getSchoolSubscriptions()]);
+            const schoolsWithSubs = updated.map((sch: any) => ({
+                ...sch,
+                subscription: subs.find(sub => sub.schoolId === sch.id) || null
+            }));
+            setSchools(schoolsWithSubs);
 
             setNewSchool({ name: '', schoolId: '', email: '', packageId: '', password: '', maxStudents: '', criticalExpiryDays: '30', warningExpiryDays: '60' });
             setEditingId(null);
@@ -106,8 +218,12 @@ export default function SchoolsPage() {
             const result = await deleteSchool(id);
             if (result.success) {
                 toast.success('School deleted successfully');
-                const updated = await getSchools();
-                setSchools(updated);
+                const [updated, subs] = await Promise.all([getSchools(), getSchoolSubscriptions()]);
+                const schoolsWithSubs = updated.map((sch: any) => ({
+                    ...sch,
+                    subscription: subs.find(sub => sub.schoolId === sch.id) || null
+                }));
+                setSchools(schoolsWithSubs);
             } else {
                 toast.error(result.error || 'Failed to delete school');
             }
@@ -350,6 +466,7 @@ export default function SchoolsPage() {
                             <TableHead>Package</TableHead>
                             <TableHead>Students</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Subscription</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -397,6 +514,48 @@ export default function SchoolsPage() {
                                             {school.isActive ? 'Active' : 'Inactive'}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell>
+                                        {(() => {
+                                            const sub = school.subscription;
+                                            if (!sub) {
+                                                return <Badge variant="outline" className="text-slate-400 border-slate-200">Default Plan</Badge>;
+                                            }
+                                            const days = getDaysRemaining(sub.endDate);
+                                            if (sub.status !== 'Active') {
+                                                const statusMap: Record<string, string> = {
+                                                    Trial: 'bg-indigo-500 hover:bg-indigo-600 text-white border-none',
+                                                    Expired: 'bg-rose-500 hover:bg-rose-600 text-white border-none',
+                                                    Suspended: 'bg-slate-500 hover:bg-slate-600 text-white border-none',
+                                                    Cancelled: 'bg-red-700 hover:bg-red-800 text-white border-none'
+                                                };
+                                                return <Badge className={statusMap[sub.status] || 'bg-slate-500'}>{sub.status}</Badge>;
+                                            }
+                                            if (days !== null) {
+                                                if (days <= 0) {
+                                                    return <Badge className="bg-rose-600 text-white border-none">Expired</Badge>;
+                                                } else if (days <= 7) {
+                                                    return (
+                                                        <Badge className="bg-rose-500 hover:bg-rose-600 text-white border-none animate-pulse">
+                                                            ⚠️ {days}d left
+                                                        </Badge>
+                                                    );
+                                                } else if (days <= 30) {
+                                                    return (
+                                                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-none">
+                                                            {days}d left
+                                                        </Badge>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-none">
+                                                            Active ({days}d)
+                                                        </Badge>
+                                                    );
+                                                }
+                                            }
+                                            return <Badge variant="outline">Active</Badge>;
+                                        })()}
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -419,6 +578,10 @@ export default function SchoolsPage() {
                                                 <DropdownMenuItem onClick={() => openEdit(school)}>
                                                     Edit Details
                                                 </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => openManageSubscription(school)} className="text-indigo-600 font-bold">
+                                                    <CalendarClock className="mr-2 h-4 w-4" /> Manage Subscription
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem onClick={() => handleDownloadProfile(school)}>
                                                     <Download className="mr-2 h-4 w-4" /> Download Profile
                                                 </DropdownMenuItem>
@@ -450,6 +613,141 @@ export default function SchoolsPage() {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* ─── SUBSCRIPTION MANAGEMENT DIALOG ─────────────────────────────────── */}
+            <Dialog open={isSubOpen} onOpenChange={setIsSubOpen}>
+                <DialogContent className="sm:max-w-[680px] p-0 border-none shadow-2xl rounded-2xl overflow-hidden">
+                    <DialogHeader className="p-7 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                        <DialogTitle className="text-xl font-black">
+                            📦 Subscription — {subSchool?.name}
+                        </DialogTitle>
+                        <DialogDescription className="text-indigo-200 font-medium">
+                            Configure this school&apos;s independent subscription. Changes apply only to this school.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="p-7 max-h-[75vh] overflow-y-auto space-y-6">
+
+                        {/* Pricing & Billing */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Price (₹)</Label>
+                                <Input type="number" value={subData.price} onChange={e => setSubData(p => ({ ...p, price: Number(e.target.value) }))} className="h-10 font-bold" placeholder="e.g. 28000" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Billing Cycle</Label>
+                                <Select value={subData.billingCycle} onValueChange={v => setSubData(p => ({ ...p, billingCycle: v as any }))}>
+                                    <SelectTrigger className="h-10 font-semibold"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                        <SelectItem value="yearly">Yearly</SelectItem>
+                                        <SelectItem value="one-time">One-time</SelectItem>
+                                        <SelectItem value="custom">Custom</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Limits */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Max Students</Label>
+                                <Input type="number" value={subData.maxStudents} onChange={e => setSubData(p => ({ ...p, maxStudents: Number(e.target.value) }))} className="h-10 font-bold" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">QR Limit / Month</Label>
+                                <Input type="number" value={subData.qrTransactionLimit} onChange={e => setSubData(p => ({ ...p, qrTransactionLimit: Number(e.target.value) }))} className="h-10 font-bold" />
+                            </div>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Start Date</Label>
+                                <Input type="date" value={subData.startDate?.slice(0,10)} onChange={e => setSubData(p => ({ ...p, startDate: e.target.value }))} className="h-10 font-semibold" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">End Date</Label>
+                                <Input type="date" value={subData.endDate?.slice(0,10)} onChange={e => setSubData(p => ({ ...p, endDate: e.target.value }))} className="h-10 font-semibold" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Renewal Reminder</Label>
+                                <Input type="date" value={subData.renewalDate?.slice(0,10) || ''} onChange={e => setSubData(p => ({ ...p, renewalDate: e.target.value }))} className="h-10 font-semibold" />
+                            </div>
+                        </div>
+
+                        {/* Status & Auto-Renew */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Status</Label>
+                                <Select value={subData.status} onValueChange={v => setSubData(p => ({ ...p, status: v as any }))}>
+                                    <SelectTrigger className="h-10 font-semibold"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Active">✅ Active</SelectItem>
+                                        <SelectItem value="Trial">🔬 Trial</SelectItem>
+                                        <SelectItem value="Expired">⏰ Expired</SelectItem>
+                                        <SelectItem value="Suspended">⏸️ Suspended</SelectItem>
+                                        <SelectItem value="Cancelled">❌ Cancelled</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Auto Renew</Label>
+                                <Select value={subData.autoRenew ? 'yes' : 'no'} onValueChange={v => setSubData(p => ({ ...p, autoRenew: v === 'yes' }))}>
+                                    <SelectTrigger className="h-10 font-semibold"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="yes">🔄 Yes — Auto Renew</SelectItem>
+                                        <SelectItem value="no">⬜ No — Manual Renewal</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Modules */}
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex justify-between">
+                                Active Modules
+                                <span className="text-indigo-600">{(subData.modules ?? []).length} selected</span>
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2 p-4 bg-slate-50 rounded-xl border max-h-48 overflow-y-auto">
+                                {MODULES.map(mod => (
+                                    <label key={mod.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer border transition-all ${
+                                        (subData.modules ?? []).includes(mod.id)
+                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                            : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200'
+                                    }`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={(subData.modules ?? []).includes(mod.id)}
+                                            onChange={() => toggleSubModule(mod.id)}
+                                            className="accent-indigo-600 h-4 w-4"
+                                        />
+                                        <span className="text-xs font-bold">{mod.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Internal Notes</Label>
+                            <Input value={subData.notes ?? ''} onChange={e => setSubData(p => ({ ...p, notes: e.target.value }))} placeholder="e.g. Negotiated rate, special deal, contact person..." className="h-10" />
+                        </div>
+
+                    </div>
+
+                    <DialogFooter className="p-5 bg-slate-50 border-t flex gap-3">
+                        <Button variant="ghost" onClick={() => setIsSubOpen(false)} className="font-bold text-slate-500">Cancel</Button>
+                        <Button
+                            className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold h-11 rounded-xl shadow-lg shadow-indigo-100"
+                            onClick={handleSaveSubscription}
+                            disabled={subSaving}
+                        >
+                            {subSaving ? 'Saving...' : '💾 Save Subscription'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* --- Professional Profile Print View (Shared Logic) --- */}
             {printingSchool && (

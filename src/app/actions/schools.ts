@@ -267,6 +267,24 @@ export async function addSchool(newSchool: School, adminPassword?: string) {
             console.warn('[HYBRID] Sync to data.json failed during addSchool');
         }
 
+        // Create initial subscription for the newly created school from their assigned package template
+        if (schoolData.packageId) {
+            try {
+                const pkg = await prisma.saasPackage.findUnique({
+                    where: { id: schoolData.packageId }
+                }).catch(() => {
+                    const db = readDb();
+                    return db.packages?.find(p => p.id === schoolData.packageId);
+                });
+                if (pkg) {
+                    const { createSubscriptionFromPackage } = require('./subscriptions');
+                    await createSubscriptionFromPackage(school.id, pkg);
+                }
+            } catch (err) {
+                console.warn('[SUBSCRIPTION] Failed to create initial subscription on school onboard:', err);
+            }
+        }
+
         revalidatePath('/super-admin/schools');
         return { success: true, school };
     } catch (error: any) {
@@ -274,6 +292,7 @@ export async function addSchool(newSchool: School, adminPassword?: string) {
         return { success: false, error: error.message };
     }
 }
+
 
 export async function updateSchool(id: string, data: Partial<School>, adminPassword?: string) {
     try {

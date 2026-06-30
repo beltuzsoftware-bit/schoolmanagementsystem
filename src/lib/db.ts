@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { School, SaasPackage, User, Module, IDCardTemplate, Student, StaffFormTemplate, AdmissionFormTemplate, StudentProfileTemplate, SubjectGroup, Subject, ClassSubjectAllocation, QRTransaction, AdmissionApplication, AccessoryTemplate, AccessorySale, SubjectGroupType, CurriculumTemplate } from '@/types';
+import { School, SaasPackage, User, Module, IDCardTemplate, Student, StaffFormTemplate, AdmissionFormTemplate, StudentProfileTemplate, SubjectGroup, Subject, ClassSubjectAllocation, QRTransaction, AdmissionApplication, AccessoryTemplate, AccessorySale, SubjectGroupType, CurriculumTemplate, SchoolSubscription } from '@/types';
 import { StaffProfile, AttendanceMaster } from '@/types/staff';
 import { FeeGroup, Transaction as FeeTransaction, DEMO_FEE_GROUP } from '@/types/fees';
 import { MOCK_SCHOOLS, PACKAGES, MOCK_USERS, MODULES, DEFAULT_ID_CARD_TEMPLATES, DEFAULT_STAFF_FORM_TEMPLATES, DEFAULT_ADMISSION_FORM_TEMPLATES, DEFAULT_STUDENT_PROFILE_TEMPLATES, DEFAULT_SUBJECT_GROUPS, DEFAULT_SUBJECTS, DEFAULT_ACCESSORY_TEMPLATES } from '@/lib/mock-data';
@@ -52,6 +52,7 @@ interface DatabaseSchema {
         defaultFeeTemplate: string;
         disabledFeeTemplates: string[];
     };
+    schoolSubscriptions: SchoolSubscription[];
     globalStudentDefaults: {
         classes: ClassSetup[];
         sections: string[];
@@ -107,6 +108,7 @@ const INITIAL_DATA: DatabaseSchema = {
         defaultFeeTemplate: 'template_1',
         disabledFeeTemplates: [],
     },
+    schoolSubscriptions: [],
     globalStudentDefaults: {
         classes: INITIAL_CLASS_SETUPS,
         sections: INITIAL_SECTIONS,
@@ -233,6 +235,7 @@ export function readDb(): DatabaseSchema {
             accessoryTemplates: parsed.accessoryTemplates ?? INITIAL_DATA.accessoryTemplates,
             accessorySales: parsed.accessorySales ?? INITIAL_DATA.accessorySales,
             revertedTransactions: parsed.revertedTransactions ?? INITIAL_DATA.revertedTransactions,
+            schoolSubscriptions: (parsed as any).schoolSubscriptions ?? [],
             platformConfig: {
                 ...INITIAL_DATA.platformConfig,
                 ...((parsed as any).platformConfig || {}),

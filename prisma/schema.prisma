@@ -417,3 +417,45 @@ model IdCardTemplate {
   updatedAt       DateTime @updatedAt
 }
 
+// ─── PER-SCHOOL SUBSCRIPTION ────────────────────────────────────────────────
+// Each school gets its own fully independent subscription.
+// Packages act as quick-start templates only — not a live link.
+// ─────────────────────────────────────────────────────────────────────────────
+model SchoolSubscription {
+  id            String   @id @default(uuid())
+  schoolId      String   @unique  // one subscription per school
+
+  // Pricing
+  price                   Float    @default(0)
+  billingCycle            String   @default("monthly") // monthly | yearly | one-time | custom
+
+  // Limits
+  maxStudents             Int      @default(500)
+  qrTransactionLimit      Int      @default(100)
+
+  // Modules — fully custom list per school
+  modules                 String[] // active module IDs e.g. ["m1","m3","m4"]
+
+  // Subscription Period
+  startDate               DateTime @default(now())
+  endDate                 DateTime
+  renewalDate             DateTime?
+  autoRenew               Boolean  @default(false)
+
+  // Template Assignments (override package defaults)
+  admissionFormTemplateId String?
+  staffFormTemplateId     String?
+  accessoryTemplateId     String?
+
+  // Tracking & Meta
+  templatePackageId       String?  // which package was used as starting template (info only)
+  status                  String   @default("Active")
+  // Allowed: Active | Trial | Expired | Suspended | Cancelled
+
+  notes                   String?  // internal Super Admin deal notes
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+

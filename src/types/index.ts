@@ -96,6 +96,9 @@ export interface School extends Partial<StudentSettings> {
     feeTypes?: string[];
     feeDiscounts?: FeeDiscount[];
     feeReminders?: FeeReminder[];
+
+    // Per-school subscription (loaded separately via getSchoolSubscription)
+    subscription?: SchoolSubscription;
 }
 
 export interface Module {
@@ -120,6 +123,47 @@ export interface SaasPackage {
     qrTransactionLimit?: number; // -1 for unlimited
     transactionRate?: number; // flat fee per transaction
     accessoryTemplateId?: string;
+    // Usage count (populated on super-admin package list page)
+    schoolsCount?: number;
+}
+
+// ─── PER-SCHOOL SUBSCRIPTION ────────────────────────────────────────────────
+// Each school has its own fully independent subscription.
+// Packages are templates — not live config.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface SchoolSubscription {
+    id: string;
+    schoolId: string;
+
+    // Pricing
+    price: number;
+    billingCycle: 'monthly' | 'yearly' | 'one-time' | 'custom';
+
+    // Limits
+    maxStudents: number;
+    qrTransactionLimit: number;
+
+    // Modules — this school's active modules (fully custom)
+    modules: string[];
+
+    // Subscription Period
+    startDate: string;  // ISO date string
+    endDate: string;    // ISO date string
+    renewalDate?: string;
+    autoRenew: boolean;
+
+    // Template Assignments
+    admissionFormTemplateId?: string;
+    staffFormTemplateId?: string;
+    accessoryTemplateId?: string;
+
+    // Meta
+    templatePackageId?: string; // informational: which package was used as template
+    status: 'Active' | 'Trial' | 'Expired' | 'Suspended' | 'Cancelled';
+    notes?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface QRTransaction {
