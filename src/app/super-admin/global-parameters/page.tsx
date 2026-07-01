@@ -13,6 +13,7 @@ import ClassesManager from '@/components/school-admin/settings/classes-manager';
 import IdGenerationManager from '@/components/school-admin/settings/id-generation-manager';
 import { ClassSetup, RegNoSettings, EnrollmentNoSettings, AutoIdSettings } from '@/types/student-settings';
 import { 
+    INITIAL_ADMISSION_SETTINGS,
     INITIAL_REG_SETTINGS, INITIAL_ENROLL_SETTINGS, INITIAL_APAAR_SETTINGS,
     INITIAL_PEN_SETTINGS, INITIAL_SR_SETTINGS, INITIAL_GEN_REG_SETTINGS,
     INITIAL_ROLL_SETTINGS 
@@ -32,6 +33,7 @@ export default function GlobalParametersPage() {
     const [globalSessions, setGlobalSessions] = useState<string[]>([]);
     const [globalDisableReasons, setGlobalDisableReasons] = useState<string[]>([]);
     
+    const [globalAdmissionSettings, setGlobalAdmissionSettings] = useState<RegNoSettings>(INITIAL_ADMISSION_SETTINGS);
     const [globalRegSettings, setGlobalRegSettings] = useState<RegNoSettings>(INITIAL_REG_SETTINGS);
     const [globalEnrollSettings, setGlobalEnrollSettings] = useState<EnrollmentNoSettings>(INITIAL_ENROLL_SETTINGS);
     const [globalApaarSettings, setGlobalApaarSettings] = useState<AutoIdSettings>(INITIAL_APAAR_SETTINGS);
@@ -62,6 +64,7 @@ export default function GlobalParametersPage() {
                 setGlobalSessions(globals.sessions || []);
                 setGlobalDisableReasons(globals.disableReasons || []);
                 
+                if (globals.admissionNoSettings) setGlobalAdmissionSettings(globals.admissionNoSettings);
                 if (globals.regNoSettings) setGlobalRegSettings(globals.regNoSettings);
                 if (globals.enrollNoSettings) setGlobalEnrollSettings(globals.enrollNoSettings);
                 if (globals.apaarIdSettings) setGlobalApaarSettings(globals.apaarIdSettings);
@@ -79,6 +82,7 @@ export default function GlobalParametersPage() {
 
     const handleIdUpdate = (field: string, newSettings: any) => {
         switch (field) {
+            case 'admissionNumber': setGlobalAdmissionSettings(newSettings); break;
             case 'registrationNo': setGlobalRegSettings(newSettings); break;
             case 'enrollmentNo': setGlobalEnrollSettings(newSettings); break;
             case 'apaarId': setGlobalApaarSettings(newSettings); break;
@@ -101,6 +105,7 @@ export default function GlobalParametersPage() {
                 houses: globalHouses,
                 sessions: globalSessions,
                 disableReasons: globalDisableReasons,
+                admissionNoSettings: globalAdmissionSettings,
                 regNoSettings: globalRegSettings,
                 enrollNoSettings: globalEnrollSettings,
                 apaarIdSettings: globalApaarSettings,
@@ -253,6 +258,7 @@ export default function GlobalParametersPage() {
                 <CardContent className="p-8">
                     <IdGenerationManager 
                         settings={{ 
+                            admissionNumber: globalAdmissionSettings,
                             registrationNo: globalRegSettings, 
                             enrollmentNo: globalEnrollSettings, 
                             apaarId: globalApaarSettings, 

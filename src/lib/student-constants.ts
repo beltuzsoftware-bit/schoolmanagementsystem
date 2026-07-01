@@ -52,6 +52,17 @@ export const DEFAULT_COLORS = {
     sidebarText: '#22d3ee',
 };
 
+export const INITIAL_ADMISSION_SETTINGS: AutoIdSettings = {
+    enabled: true,
+    template: 'template1',
+    prefix: 'ADM',
+    separator1: '-',
+    padding: 3,
+    suffix: '',
+    startFrom: 1,
+    currentSerial: 0
+};
+
 export const INITIAL_REG_SETTINGS: RegNoSettings = {
     enabled: true,
     template: 'template1',

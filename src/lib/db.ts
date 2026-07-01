@@ -7,6 +7,7 @@ import { MOCK_SCHOOLS, PACKAGES, MOCK_USERS, MODULES, DEFAULT_ID_CARD_TEMPLATES,
 import { 
     INITIAL_RELIGIONS, INITIAL_CATEGORIES, INITIAL_STREAMS,
     INITIAL_CLASS_SETUPS, INITIAL_SECTIONS, INITIAL_HOUSES,
+    INITIAL_ADMISSION_SETTINGS,
     INITIAL_REG_SETTINGS, INITIAL_ENROLL_SETTINGS, INITIAL_APAAR_SETTINGS,
     INITIAL_PEN_SETTINGS, INITIAL_SR_SETTINGS, INITIAL_GEN_REG_SETTINGS,
     INITIAL_ROLL_SETTINGS, INITIAL_DISABLE_REASONS
@@ -61,6 +62,7 @@ interface DatabaseSchema {
         categories: string[];
         streams: string[];
         disableReasons: string[];
+        admissionNoSettings: RegNoSettings;
         regNoSettings: RegNoSettings;
         enrollNoSettings: EnrollmentNoSettings;
         apaarIdSettings: AutoIdSettings;
@@ -117,6 +119,7 @@ const INITIAL_DATA: DatabaseSchema = {
         categories: INITIAL_CATEGORIES,
         streams: INITIAL_STREAMS,
         disableReasons: INITIAL_DISABLE_REASONS,
+        admissionNoSettings: INITIAL_ADMISSION_SETTINGS,
         regNoSettings: INITIAL_REG_SETTINGS,
         enrollNoSettings: INITIAL_ENROLL_SETTINGS,
         apaarIdSettings: INITIAL_APAAR_SETTINGS,

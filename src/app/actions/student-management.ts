@@ -15,6 +15,7 @@ import { calculateMonthFinancials, getStudentType } from '@/lib/fees-helper';
 import { 
     INITIAL_CLASS_SETUPS, INITIAL_SECTIONS, INITIAL_HOUSES, INITIAL_RELIGIONS, 
     INITIAL_CATEGORIES, INITIAL_STREAMS, INITIAL_DISABLE_REASONS,
+    INITIAL_ADMISSION_SETTINGS,
     INITIAL_REG_SETTINGS, INITIAL_ENROLL_SETTINGS, INITIAL_APAAR_SETTINGS,
     INITIAL_PEN_SETTINGS, INITIAL_SR_SETTINGS, INITIAL_GEN_REG_SETTINGS,
     INITIAL_ROLL_SETTINGS
@@ -266,6 +267,33 @@ function sanitizeStudentForPrisma(data: any): any {
     return clean;
 }
 
+function resolveIdSettings(school: any, settingKey: string, globalDefault: any) {
+    const customEnabled = !!school?.useCustomIdSettings;
+    const schoolSetting = school?.[settingKey];
+    if (customEnabled) {
+        return schoolSetting ? { ...schoolSetting } : { ...globalDefault };
+    } else {
+        return {
+            ...globalDefault,
+            currentSerial: schoolSetting?.currentSerial ?? globalDefault.currentSerial
+        };
+    }
+}
+
+function getGlobalIdDefault(settingKey: string) {
+    switch (settingKey) {
+        case 'admissionNoSettings': return INITIAL_ADMISSION_SETTINGS;
+        case 'regNoSettings': return INITIAL_REG_SETTINGS;
+        case 'enrollNoSettings': return INITIAL_ENROLL_SETTINGS;
+        case 'apaarIdSettings': return INITIAL_APAAR_SETTINGS;
+        case 'penNoSettings': return INITIAL_PEN_SETTINGS;
+        case 'srNoSettings': return INITIAL_SR_SETTINGS;
+        case 'genRegNoSettings': return INITIAL_GEN_REG_SETTINGS;
+        case 'rollNoSettings': return INITIAL_ROLL_SETTINGS;
+        default: return null;
+    }
+}
+
 export async function addStudent(studentData: Partial<Student>) {
     try {
         if (!studentData.name || !studentData.schoolId) {
@@ -317,11 +345,12 @@ export async function addStudent(studentData: Partial<Student>) {
             id: studentData.id || `stu_${Date.now()}`,
             status: 'Active',
             name,
-            admissionNumber: studentData.admissionNumber || (studentData as any).registrationNo || `ADM-${Date.now()}`
+            admissionNumber: studentData.admissionNumber || ''
         };
 
         // Auto-increment ID Serials in School Settings
         const idFields = [
+            { field: 'admissionNumber', setting: 'admissionNoSettings' },
             { field: 'registrationNo', setting: 'regNoSettings' },
             { field: 'enrollmentNo', setting: 'enrollNoSettings' },
             { field: 'apaarId', setting: 'apaarIdSettings' },
@@ -335,21 +364,75 @@ export async function addStudent(studentData: Partial<Student>) {
         let hasUpdates = false;
 
         for (const { field, setting } of idFields) {
-            const val = (studentData as any)[field];
-            const settings = (school as any)[setting];
-            
-            if (val && settings && settings.enabled) {
-                // Increment the serial
+            const globalDefault = getGlobalIdDefault(setting);
+            if (!globalDefault) continue;
+            const settings = resolveIdSettings(school, setting, globalDefault);
+
+            if (!(finalStudentData as any)[field] && settings && settings.enabled !== false) {
+                if (field === 'enrollmentNo' && settings.useSameAsRegNo && finalStudentData.registrationNo) {
+                    finalStudentData.enrollmentNo = finalStudentData.registrationNo;
+                } else {
+                    // For Roll Number, check if we should reset per section
+                    if (field === 'rollNumber' && settings.isPerSection) {
+                        const sameCohortMax = await prisma.student.findFirst({
+                            where: {
+                                schoolId: finalStudentData.schoolId,
+                                className: finalStudentData.className,
+                                section: finalStudentData.section,
+                                currentSessionId: finalStudentData.currentSessionId || finalStudentData.enrolledSession
+                            },
+                            orderBy: { rollNumber: 'desc' },
+                            select: { rollNumber: true }
+                        });
+
+                        if (sameCohortMax?.rollNumber) {
+                            const matches = sameCohortMax.rollNumber.match(/\d+$/);
+                            if (matches) {
+                                settings.currentSerial = parseInt(matches[0], 10);
+                            } else {
+                                settings.currentSerial = settings.startFrom - 1;
+                            }
+                        } else {
+                            settings.currentSerial = settings.startFrom - 1;
+                        }
+                    }
+
+                    let classCode = '';
+                    if (finalStudentData.className) {
+                        const classDb = school.useCustomClasses && school.classes ? (school.classes as any) : INITIAL_CLASS_SETUPS;
+                        const foundClass = classDb.find((c: any) => c.name === finalStudentData.className);
+                        if (foundClass && foundClass.code) {
+                            classCode = foundClass.code;
+                        }
+                    }
+
+                    (finalStudentData as any)[field] = generateNextId(settings, {
+                        className: finalStudentData.className,
+                        classCode: classCode,
+                        date: finalStudentData.admissionDate
+                    });
+                    settings.currentSerial = (settings.currentSerial < settings.startFrom ? settings.startFrom : settings.currentSerial + 1);
+                    updates[setting] = {
+                        ...((school as any)[setting] || globalDefault),
+                        currentSerial: settings.currentSerial
+                    };
+                    hasUpdates = true;
+                }
+            } else if ((finalStudentData as any)[field] && settings && settings.enabled) {
+                // If it was provided manually but auto-generation is enabled globally, we still increment sequence
                 const currentSerial = settings.currentSerial || 0;
                 const startFrom = settings.startFrom || 1;
                 const nextSerial = currentSerial < startFrom ? startFrom : currentSerial + 1;
-                
                 updates[setting] = {
-                    ...settings,
+                    ...((school as any)[setting] || globalDefault),
                     currentSerial: nextSerial
                 };
                 hasUpdates = true;
             }
+        }
+
+        if (!finalStudentData.admissionNumber) {
+            return { success: false, error: 'Admission Number is required' };
         }
 
         if (hasUpdates) {

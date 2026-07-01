@@ -99,6 +99,7 @@ model School {
 
 
   // ID Generation Settings (Json)
+  admissionNoSettings   Json?
   regNoSettings         Json?
   enrollNoSettings      Json?
   apaarIdSettings       Json?
@@ -324,6 +325,7 @@ model GlobalStudentDefaults {
   categories        Json?
   streams           Json?
   disableReasons    String[] @default(["Graduated", "Expelled", "Transfer", "Other"])
+  admissionNoSettings Json?
   regNoSettings     Json?
   enrollNoSettings  Json?
   apaarIdSettings   Json?

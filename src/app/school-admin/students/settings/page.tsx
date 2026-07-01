@@ -24,6 +24,7 @@ import {
     INITIAL_RELIGIONS,
     INITIAL_CATEGORIES,
     INITIAL_STREAMS,
+    INITIAL_ADMISSION_SETTINGS,
     INITIAL_REG_SETTINGS,
     INITIAL_ENROLL_SETTINGS,
     INITIAL_APAAR_SETTINGS,
@@ -108,6 +109,7 @@ export default function StudentSettingsPage() {
     const [thirdLanguageFixed, setThirdLanguageFixed] = useState(false);
     const [thirdLanguageDefault, setThirdLanguageDefault] = useState('');
 
+    const [admissionSettings, setAdmissionSettings] = useState<RegNoSettings>(INITIAL_ADMISSION_SETTINGS);
     const [regSettings, setRegSettings] = useState<RegNoSettings>(INITIAL_REG_SETTINGS);
     const [enrollSettings, setEnrollSettings] = useState<EnrollmentNoSettings>(INITIAL_ENROLL_SETTINGS);
     const [apaarSettings, setApaarSettings] = useState<AutoIdSettings>(INITIAL_APAAR_SETTINGS);
@@ -125,6 +127,7 @@ export default function StudentSettingsPage() {
         categories: INITIAL_CATEGORIES,
         streams: INITIAL_STREAMS,
         disableReasons: INITIAL_DISABLE_REASONS,
+        admissionNoSettings: INITIAL_ADMISSION_SETTINGS,
         regNoSettings: INITIAL_REG_SETTINGS,
         enrollNoSettings: INITIAL_ENROLL_SETTINGS,
         apaarIdSettings: INITIAL_APAAR_SETTINGS,
@@ -215,6 +218,7 @@ export default function StudentSettingsPage() {
                     setUseCustomLanguages(false);
                 }
 
+                if (ms.admissionNoSettings) setAdmissionSettings(ms.admissionNoSettings);
                 if (ms.regNoSettings) setRegSettings(ms.regNoSettings);
                 if (ms.enrollNoSettings) setEnrollSettings(ms.enrollNoSettings);
                 if (ms.apaarIdSettings) setApaarSettings(ms.apaarIdSettings);
@@ -269,6 +273,7 @@ export default function StudentSettingsPage() {
                 religions,
                 categories,
                 streams,
+                admissionNoSettings: admissionSettings,
                 regNoSettings: regSettings,
                 enrollNoSettings: enrollSettings,
                 apaarIdSettings: apaarSettings,
@@ -340,6 +345,7 @@ export default function StudentSettingsPage() {
 
     const handleIdUpdate = (field: string, newSettings: any) => {
         switch (field) {
+            case 'admissionNumber': setAdmissionSettings(newSettings); break;
             case 'registrationNo': setRegSettings(newSettings); break;
             case 'enrollmentNo': setEnrollSettings(newSettings); break;
             case 'apaarId': setApaarSettings(newSettings); break;
@@ -634,9 +640,9 @@ export default function StudentSettingsPage() {
                             <div className={!useCustomIdSettings ? "opacity-60 pointer-events-none grayscale-[0.3] transition-all" : "transition-all"}>
                                 <IdGenerationManager
                                     settings={useCustomIdSettings ? { 
-                                        registrationNo: regSettings, enrollmentNo: enrollSettings, apaarId: apaarSettings, penNo: penSettings, srNo: srSettings, generalRegistrationNo: genRegSettings, rollNumber: rollSettings 
+                                        admissionNumber: admissionSettings, registrationNo: regSettings, enrollmentNo: enrollSettings, apaarId: apaarSettings, penNo: penSettings, srNo: srSettings, generalRegistrationNo: genRegSettings, rollNumber: rollSettings 
                                     } : {
-                                        registrationNo: globalDefaults.regNoSettings, enrollmentNo: globalDefaults.enrollNoSettings, apaarId: globalDefaults.apaarIdSettings, penNo: globalDefaults.penNoSettings, srNo: globalDefaults.srNoSettings, generalRegistrationNo: globalDefaults.genRegNoSettings, rollNumber: globalDefaults.rollNoSettings 
+                                        admissionNumber: globalDefaults.admissionNoSettings, registrationNo: globalDefaults.regNoSettings, enrollmentNo: globalDefaults.enrollNoSettings, apaarId: globalDefaults.apaarIdSettings, penNo: globalDefaults.penNoSettings, srNo: globalDefaults.srNoSettings, generalRegistrationNo: globalDefaults.genRegNoSettings, rollNumber: globalDefaults.rollNoSettings 
                                     }}
                                     onUpdate={handleIdUpdate}
                                 />

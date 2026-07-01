@@ -647,7 +647,16 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
                         {idSettings[fieldName]?.enabled !== false ? (
                             <ToggleSwitch
                                 enabled={!!manualFields[fieldName]}
-                                onChange={(val) => setManualFields(prev => ({ ...prev, [fieldName]: val }))}
+                                onChange={(val) => {
+                                    setManualFields(prev => ({ ...prev, [fieldName]: val }));
+                                    if (!val) {
+                                        setFormData(prev => {
+                                            const updated = { ...prev };
+                                            delete (updated as any)[fieldName];
+                                            return updated;
+                                        });
+                                    }
+                                }}
                                 labelOff="Auto"
                                 labelOn="Manual"
                             />

@@ -10,6 +10,7 @@ import { Settings2, Hash, FileDigit } from 'lucide-react';
 
 interface IdGenerationManagerProps {
     settings: {
+        admissionNumber: RegNoSettings;
         registrationNo: RegNoSettings;
         enrollmentNo: EnrollmentNoSettings;
         apaarId?: AutoIdSettings;
@@ -46,6 +47,7 @@ export default function IdGenerationManager({
 }: IdGenerationManagerProps) {
 
     const fields = [
+        { key: 'admissionNumber', label: 'Admission No.', icon: <Hash className="w-4 h-4 text-slate-600" /> },
         { key: 'registrationNo', label: 'Registration No.', icon: <Hash className="w-4 h-4 text-slate-600" /> },
         { key: 'enrollmentNo', label: 'Enrollment No.', icon: <FileDigit className="w-4 h-4 text-slate-600" /> },
         { key: 'apaarId', label: 'APAAR ID', icon: <Hash className="w-4 h-4 text-slate-600" /> },

@@ -22,6 +22,7 @@ import {
     INITIAL_RELIGIONS,
     INITIAL_CATEGORIES,
     INITIAL_STREAMS,
+    INITIAL_ADMISSION_SETTINGS,
     INITIAL_REG_SETTINGS,
     INITIAL_ENROLL_SETTINGS,
     INITIAL_APAAR_SETTINGS,
@@ -1322,6 +1323,33 @@ function resolveSessionIdSync(rawSessionName: string, sessions: any[], resolvedC
     return sessions[0]?.id || resolvedCurrentSessionId;
 }
 
+function resolveIdSettings(school: any, settingKey: string, globalDefault: any) {
+    const customEnabled = !!school?.useCustomIdSettings;
+    const schoolSetting = school?.[settingKey];
+    if (customEnabled) {
+        return schoolSetting ? { ...schoolSetting } : { ...globalDefault };
+    } else {
+        return {
+            ...globalDefault,
+            currentSerial: schoolSetting?.currentSerial ?? globalDefault.currentSerial
+        };
+    }
+}
+
+function getGlobalIdDefault(settingKey: string) {
+    switch (settingKey) {
+        case 'admissionNoSettings': return INITIAL_ADMISSION_SETTINGS;
+        case 'regNoSettings': return INITIAL_REG_SETTINGS;
+        case 'enrollNoSettings': return INITIAL_ENROLL_SETTINGS;
+        case 'apaarIdSettings': return INITIAL_APAAR_SETTINGS;
+        case 'penNoSettings': return INITIAL_PEN_SETTINGS;
+        case 'srNoSettings': return INITIAL_SR_SETTINGS;
+        case 'genRegNoSettings': return INITIAL_GEN_REG_SETTINGS;
+        case 'rollNoSettings': return INITIAL_ROLL_SETTINGS;
+        default: return null;
+    }
+}
+
 export async function addStudent(studentData: Partial<Student>) {
     if (!studentData.name || !studentData.schoolId) {
         return { success: false, error: 'Missing required fields' };
@@ -1344,6 +1372,7 @@ export async function addStudent(studentData: Partial<Student>) {
     }
 
     const idSettingsMap: Record<string, string> = {
+        admissionNumber: 'admissionNoSettings',
         registrationNo: 'regNoSettings',
         enrollmentNo: 'enrollNoSettings',
         apaarId: 'apaarIdSettings',
@@ -1356,7 +1385,10 @@ export async function addStudent(studentData: Partial<Student>) {
     const schoolUpdates: any = {};
 
     for (const [field, settingKey] of Object.entries(idSettingsMap)) {
-        const settings = (school as any)[settingKey];
+        const globalDefault = getGlobalIdDefault(settingKey);
+        if (!globalDefault) continue;
+        const settings = resolveIdSettings(school, settingKey, globalDefault);
+
         if (!(studentData as any)[field] && settings && settings.enabled !== false) {
             if (field === 'enrollmentNo' && settings.useSameAsRegNo && studentData.registrationNo) {
                 studentData.enrollmentNo = studentData.registrationNo;
@@ -1403,18 +1435,16 @@ export async function addStudent(studentData: Partial<Student>) {
                     date: studentData.admissionDate
                 });
                 settings.currentSerial = (settings.currentSerial < settings.startFrom ? settings.startFrom : settings.currentSerial + 1);
-                schoolUpdates[settingKey] = settings;
+                schoolUpdates[settingKey] = {
+                    ...((school as any)[settingKey] || globalDefault),
+                    currentSerial: settings.currentSerial
+                };
             }
         }
     }
 
-    // Always keep admissionNumber in sync with registrationNo.
-    // registrationNo is the user-visible ID (e.g. REG-062); admissionNumber is the
-    // internal unique key used across fees, ID cards, QR codes etc. They must match.
-    if (studentData.registrationNo) {
-        studentData.admissionNumber = studentData.registrationNo;
-    } else if (!studentData.admissionNumber) {
-        studentData.admissionNumber = `ADM-${Date.now()}`;
+    if (!studentData.admissionNumber) {
+        return { success: false, error: 'Admission Number is required' };
     }
 
     const isDuplicate = await prisma.student.findUnique({
@@ -1530,6 +1560,7 @@ export async function importStudentsBatch(schoolId: string, studentsData: Partia
 
         const results = { total: studentsData.length, added: 0, updated: 0, errors: 0 };
         const idSettingsMapByField: Record<string, string> = {
+            admissionNumber: 'admissionNoSettings',
             registrationNo: 'regNoSettings', enrollmentNo: 'enrollNoSettings', apaarId: 'apaarIdSettings',
             penNo: 'penNoSettings', srNo: 'srNoSettings', generalRegistrationNo: 'genRegNoSettings', rollNumber: 'rollNoSettings'
         };
@@ -1668,8 +1699,11 @@ export async function importStudentsBatch(schoolId: string, studentsData: Partia
 
                 // Auto-generate IDs if missing
                 for (const [field, settingKey] of Object.entries(idSettingsMapByField)) {
-                    const settings = (school as any)[settingKey];
-                    if (!finalData[field] && settings?.enabled) {
+                    const globalDefault = getGlobalIdDefault(settingKey);
+                    if (!globalDefault) continue;
+                    const settings = resolveIdSettings(school, settingKey, globalDefault);
+
+                    if (!finalData[field] && settings && settings.enabled !== false) {
                         const existingRec = existingId ? existingStudents.find((s: any) => s.id === existingId) : null;
                         if (!existingRec || !(existingRec as any)[field]) {
                             if (field === 'rollNumber') {
@@ -1679,8 +1713,11 @@ export async function importStudentsBatch(schoolId: string, studentsData: Partia
                                 cohortUsedRolls[cohortKey].add(cohortTracker[cohortKey].toString());
                             } else {
                                 finalData[field] = generateNextId(settings, { className: finalData.className, date: finalData.admissionDate });
-                                settings.currentSerial++;
-                                schoolUpdates[settingKey] = settings;
+                                settings.currentSerial = (settings.currentSerial < settings.startFrom ? settings.startFrom : settings.currentSerial + 1);
+                                schoolUpdates[settingKey] = {
+                                    ...((school as any)[settingKey] || globalDefault),
+                                    currentSerial: settings.currentSerial
+                                };
                             }
                         }
                     }
@@ -1756,11 +1793,6 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         if (VALID_STUDENT_FIELDS.has(key)) {
             updatedData[key] = (data as any)[key];
         }
-    }
-
-    // Keep admissionNumber in sync with registrationNo on every update
-    if (data.registrationNo !== undefined) {
-        updatedData.admissionNumber = data.registrationNo;
     }
 
     if (data.firstName !== undefined || data.lastName !== undefined) {
@@ -2522,14 +2554,14 @@ export async function getAdmissionFormConfigForSchool(schoolId: string) {
         }).sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0)),
         sectionSettings: (tmpl?.config as any)?.sectionSettings || [],
         idSettings: {
-            admissionNumber: school?.regNoSettings,  // Primary ID — always synced with registrationNo
-            registrationNo: school?.regNoSettings,
-            enrollmentNo: school?.enrollNoSettings,
-            apaarId: school?.apaarIdSettings,
-            penNo: school?.penNoSettings,
-            srNo: school?.srNoSettings,
-            generalRegistrationNo: school?.genRegNoSettings,
-            rollNumber: school?.rollNoSettings
+            admissionNumber: resolveIdSettings(school, 'regNoSettings', INITIAL_REG_SETTINGS),
+            registrationNo: resolveIdSettings(school, 'regNoSettings', INITIAL_REG_SETTINGS),
+            enrollmentNo: resolveIdSettings(school, 'enrollNoSettings', INITIAL_ENROLL_SETTINGS),
+            apaarId: resolveIdSettings(school, 'apaarIdSettings', INITIAL_APAAR_SETTINGS),
+            penNo: resolveIdSettings(school, 'penNoSettings', INITIAL_PEN_SETTINGS),
+            srNo: resolveIdSettings(school, 'srNoSettings', INITIAL_SR_SETTINGS),
+            generalRegistrationNo: resolveIdSettings(school, 'genRegNoSettings', INITIAL_GEN_REG_SETTINGS),
+            rollNumber: resolveIdSettings(school, 'rollNoSettings', INITIAL_ROLL_SETTINGS)
         },
         academicSettings: {
             useCustomClasses: school?.useCustomClasses || false,
@@ -2702,6 +2734,7 @@ export async function getGlobalStudentDefaults() {
             categories: INITIAL_CATEGORIES,
             streams: INITIAL_STREAMS,
             disableReasons: INITIAL_DISABLE_REASONS,
+            admissionNoSettings: INITIAL_ADMISSION_SETTINGS,
             regNoSettings: INITIAL_REG_SETTINGS,
             enrollNoSettings: INITIAL_ENROLL_SETTINGS,
             apaarIdSettings: INITIAL_APAAR_SETTINGS,

@@ -53,6 +53,7 @@ export interface StudentSettings {
     categories: string[];
     streams: string[];
     sessionStartMonth: number;
+    admissionNoSettings: RegNoSettings;
     regNoSettings: RegNoSettings;
     enrollNoSettings: EnrollmentNoSettings;
     apaarIdSettings?: AutoIdSettings;
