@@ -2,6 +2,14 @@
 # VPS Deploy Orchestration Script for KuMMi School Management System
 set -e
 
+# Load NVM (Node Version Manager) if installed
+export NVM_DIR="$HOME/.nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+elif [ -s "/usr/local/bin/npm" ]; then
+    export PATH="/usr/local/bin:$PATH"
+fi
+
 # Resolve the absolute path to the project root directory (two levels up from scripts/deploy)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
