@@ -126,7 +126,26 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
                 (res.config || []).forEach((f: any) => {
                     if (f.hasAutoManualToggle) {
                         const isAutoEnabled = (res.idSettings as any)?.[f.fieldName]?.enabled !== false;
-                        initialManual[f.fieldName] = !isAutoEnabled;
+                        if (initialData?.id) {
+                            const existingVal = (initialData as any)[f.fieldName];
+                            if (existingVal === undefined || existingVal === null || existingVal === '') {
+                                initialManual[f.fieldName] = true;
+                            } else {
+                                const settings = (res.idSettings as any)?.[f.fieldName];
+                                let autoVal = '';
+                                if (settings && settings.enabled !== false) {
+                                    const selectedClass = res.academicSettings?.classes?.find((c: any) => c.name === (initialData as any).className);
+                                    autoVal = generateNextId(settings, {
+                                        className: (initialData as any).className,
+                                        classCode: selectedClass?.code,
+                                        date: (initialData as any).admissionDate || new Date().toISOString().split('T')[0]
+                                    });
+                                }
+                                initialManual[f.fieldName] = existingVal !== autoVal;
+                            }
+                        } else {
+                            initialManual[f.fieldName] = !isAutoEnabled;
+                        }
                     }
                 });
                 setManualFields(initialManual);
@@ -402,7 +421,10 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
                                 title="Remove photo"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setFormData(prev => ({ ...prev, [fieldName]: undefined }));
+                                    setFormData(prev => ({ ...prev, [fieldName]: null }));
+                                    if (fieldName === 'photo') {
+                                        setPreviewUrl(null);
+                                    }
                                     // Also reset the file input so the same file can be re-picked
                                     const input = document.getElementById(`${fieldName}-upload`) as HTMLInputElement;
                                     if (input) input.value = '';
@@ -1028,6 +1050,17 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
             // Sync name from firstName and lastName
             const fullName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim();
             const dataToSubmit = { ...formData, name: fullName, schoolId };
+
+            // For fields in Auto mode, populate their auto-generated values
+            formConfig.forEach(field => {
+                const fieldName = field.fieldName;
+                if (field.hasAutoManualToggle) {
+                    const isManual = !!manualFields[fieldName] || idSettings[fieldName]?.enabled === false;
+                    if (!isManual) {
+                        dataToSubmit[fieldName as keyof Student] = getAutoValue(fieldName) as any;
+                    }
+                }
+            });
 
             let result;
             if (initialData?.id) {

@@ -1292,7 +1292,9 @@ function sanitizeStudentForPrisma(data: any): any {
 
     for (const key of Object.keys(data)) {
         if (STUDENT_SCHEMA_FIELDS.has(key)) {
-            clean[key] = data[key];
+            const val = data[key];
+            // Treat empty string as null to clear optional fields in the database
+            clean[key] = val === '' ? null : val;
         }
     }
     return clean;
@@ -1791,7 +1793,9 @@ export async function updateStudent(id: string, data: Partial<Student>) {
     // Only copy fields that are valid Student schema fields and writable
     for (const key of Object.keys(data)) {
         if (VALID_STUDENT_FIELDS.has(key)) {
-            updatedData[key] = (data as any)[key];
+            const val = (data as any)[key];
+            // Treat empty string as null to clear optional fields in the database
+            updatedData[key] = val === '' ? null : val;
         }
     }
 
@@ -1810,7 +1814,11 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         data: updatedData
     });
 
-    revalidatePath('/school-admin/students');
+    try {
+        revalidatePath('/school-admin/students');
+    } catch (e) {
+        console.warn('[actions.ts] revalidatePath skipped (expected in non-request context)');
+    }
     return { success: true };
 }
 

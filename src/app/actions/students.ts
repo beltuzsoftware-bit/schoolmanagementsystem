@@ -192,6 +192,13 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         ...finalData 
     } = updatedData as any;
 
+    // Map empty strings to null for optional database fields
+    for (const key of Object.keys(finalData)) {
+        if (finalData[key] === '') {
+            finalData[key] = null;
+        }
+    }
+
     await prisma.student.update({
         where: { id },
         data: finalData
@@ -208,7 +215,11 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         console.warn('[HYBRID] Sync to local DB failed during updateStudent');
     }
 
-    revalidatePath('/school-admin/students');
+    try {
+        revalidatePath('/school-admin/students');
+    } catch (e) {
+        console.warn('[students.ts] revalidatePath skipped (expected in non-request context)');
+    }
     return { success: true };
 }
 

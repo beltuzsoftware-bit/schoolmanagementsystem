@@ -109,6 +109,7 @@ export default function EditStudentPage() {
                     isFullPage={true}
                     onClose={handleBack}
                     onSuccess={() => {
+                        router.refresh();
                         router.push('/school-admin/students');
                     }}
                 />

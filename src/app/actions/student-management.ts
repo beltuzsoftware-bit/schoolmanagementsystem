@@ -261,7 +261,9 @@ function sanitizeStudentForPrisma(data: any): any {
     const clean: any = {};
     for (const key of Object.keys(data)) {
         if (STUDENT_SCHEMA_FIELDS.has(key)) {
-            clean[key] = data[key];
+            const val = data[key];
+            // Treat empty string as null to clear optional fields in the database
+            clean[key] = val === '' ? null : val;
         }
     }
     return clean;
@@ -500,7 +502,11 @@ export async function updateStudent(id: string, data: Partial<Student>) {
             data: sanitizedData
         });
 
-        revalidatePath('/school-admin/students');
+        try {
+            revalidatePath('/school-admin/students');
+        } catch (e) {
+            console.warn('[student-management.ts] revalidatePath skipped (expected in non-request context)');
+        }
         return { success: true };
     } catch (error: any) {
         console.error("[UPDATE_STUDENT] Critical Error:", error);
