@@ -1057,7 +1057,7 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
                 if (field.hasAutoManualToggle) {
                     const isManual = !!manualFields[fieldName] || idSettings[fieldName]?.enabled === false;
                     if (!isManual) {
-                        dataToSubmit[fieldName as keyof Student] = getAutoValue(fieldName) as any;
+                        (dataToSubmit as any)[fieldName] = getAutoValue(fieldName);
                     }
                 }
             });
