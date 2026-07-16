@@ -120,9 +120,10 @@ export default function AttendancePage() {
         const present = Object.values(attendanceMap).filter(s => s === AttendanceStatus.PRESENT || s === AttendanceStatus.LATE).length;
         const absent = Object.values(attendanceMap).filter(s => s === AttendanceStatus.ABSENT).length;
         const half = Object.values(attendanceMap).filter(s => s === AttendanceStatus.HALF_DAY).length;
+        const leave = Object.values(attendanceMap).filter(s => s === AttendanceStatus.LEAVE).length;
         const percent = total > 0 ? Math.round(((present + (half * 0.5)) / total) * 100) : 0;
 
-        return { total, present, absent, half, percent };
+        return { total, present, absent, half, leave, percent };
     }, [attendanceMap, staff]);
 
     const filteredStaff = staff.filter(s =>
@@ -149,12 +150,13 @@ export default function AttendancePage() {
                     </p>
                 </div>
 
-                <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
                         { label: 'Total Strength', val: stats.total, color: 'text-slate-600', bg: 'bg-white' },
                         { label: 'Present / Late', val: stats.present, color: 'text-emerald-600', bg: 'bg-emerald-50/50' },
                         { label: 'Absentees', val: stats.absent, color: 'text-rose-600', bg: 'bg-rose-50/50' },
                         { label: 'Half Days', val: stats.half, color: 'text-amber-600', bg: 'bg-amber-50/50' },
+                        { label: 'On Leave', val: stats.leave, color: 'text-orange-600', bg: 'bg-orange-50/50' },
                     ].map((s, i) => (
                         <div key={i} className={`${s.bg} p-5 rounded-3xl border border-slate-100 flex flex-col justify-center items-center text-center`}>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p>
@@ -251,6 +253,7 @@ export default function AttendancePage() {
                                             <StatusBtn active={status === AttendanceStatus.ABSENT} label="A" color="bg-rose-500" onClick={() => handleStatusChange(item.id, AttendanceStatus.ABSENT)} />
                                             <StatusBtn active={status === AttendanceStatus.HALF_DAY} label="H" color="bg-amber-500" onClick={() => handleStatusChange(item.id, AttendanceStatus.HALF_DAY)} />
                                             <StatusBtn active={status === AttendanceStatus.LATE} label="L" color="bg-indigo-500" onClick={() => handleStatusChange(item.id, AttendanceStatus.LATE)} />
+                                            <StatusBtn active={status === AttendanceStatus.LEAVE} label="LV" color="bg-orange-500" onClick={() => handleStatusChange(item.id, AttendanceStatus.LEAVE)} />
                                         </div>
                                     </td>
                                 </tr>

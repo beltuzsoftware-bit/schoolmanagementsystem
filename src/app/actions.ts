@@ -1975,6 +1975,46 @@ export async function getParentSiblings(parentUsername: string) {
 
 import { StaffProfile, AttendanceRecord, AttendanceMaster } from '@/types/staff';
 
+export async function getCustomStaffRoles(schoolId: string) {
+    try {
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId }
+        });
+        if (!school) return ['Admin', 'Sub Admin', 'Principal', 'Teacher', 'Accountant', 'Receptionist', 'Librarian', 'Warden'];
+        
+        const overrides = school.admissionFieldOverrides as any;
+        if (overrides && overrides.__customStaffRoles) {
+            return overrides.__customStaffRoles as string[];
+        }
+        return ['Admin', 'Sub Admin', 'Principal', 'Teacher', 'Accountant', 'Receptionist', 'Librarian', 'Warden'];
+    } catch (e) {
+        console.error(e);
+        return ['Admin', 'Sub Admin', 'Principal', 'Teacher', 'Accountant', 'Receptionist', 'Librarian', 'Warden'];
+    }
+}
+
+export async function updateCustomStaffRoles(schoolId: string, roles: string[]) {
+    try {
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId }
+        });
+        if (!school) return { success: false, error: 'School not found' };
+        
+        const overrides = (school.admissionFieldOverrides as any) || {};
+        overrides.__customStaffRoles = roles;
+        
+        await prisma.school.update({
+            where: { id: schoolId },
+            data: { admissionFieldOverrides: overrides }
+        });
+        
+        return { success: true };
+    } catch (e: any) {
+        console.error(e);
+        return { success: false, error: e.message };
+    }
+}
+
 // --- STAFF PROFILES ---
 
 export async function getStaffProfiles(schoolId?: string) {
@@ -2055,6 +2095,7 @@ export async function addStaff(userData: Partial<User>, profileData: Partial<Sta
             gender: profileData.personalDetails?.gender || 'Male',
             husbandName: profileData.personalDetails?.husbandName || '',
             fatherName: profileData.personalDetails?.fatherName || '',
+            motherName: profileData.personalDetails?.motherName || '',
             nationality: profileData.personalDetails?.nationality || 'INDIAN',
             religion: profileData.personalDetails?.religion || '',
             category: profileData.personalDetails?.category || '',
@@ -4017,4 +4058,329 @@ Strict Layout Rules for Reconstructing the Original Image:
     return { success: false, error: err?.message || String(err) };
   }
 }
+
+export interface BulkStaffImportItem {
+    firstName: string;
+    lastName?: string;
+    email: string;
+    phone: string;
+    altPhone?: string;
+    whatsapp?: string;
+    dob?: string;
+    aadhar?: string;
+    gender?: string;
+    husbandName?: string;
+    fatherName?: string;
+    motherName?: string;
+    nationality?: string;
+    religion?: string;
+    category?: string;
+    maritalStatus?: string;
+    lastOrg?: string;
+    lastJob?: string;
+    yearsExp?: string;
+    pincode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    fullAddress?: string;
+    accHolder?: string;
+    bankName?: string;
+    ifsc?: string;
+    accNo?: string;
+    panNo?: string;
+    pfAccNo?: string;
+    uanNo?: string;
+    role?: string;
+    joiningDate?: string;
+    staffId?: string;
+    designation?: string;
+    department?: string;
+    paymentMode?: string;
+    username?: string;
+    password?: string;
+    salary?: number;
+    pfRate?: number;
+    esiRate?: number;
+    qualifications?: {
+        name: string;
+        college: string;
+        year: string;
+        document?: string;
+    }[];
+}
+
+export async function importStaffMembers(schoolId: string, staffList: BulkStaffImportItem[]) {
+    if (!schoolId) {
+        return { success: false, error: 'School ID is required' };
+    }
+    if (!staffList || staffList.length === 0) {
+        return { success: false, error: 'No staff members provided for import' };
+    }
+
+    const db = readDb();
+    if (!db.users) db.users = [];
+    if (!db.staffProfiles) db.staffProfiles = [];
+
+    const errors: string[] = [];
+    const importedProfiles: any[] = [];
+    const importedUsers: any[] = [];
+
+    // Get current employee ID counter start
+    const schoolUsers = db.users.filter((u: any) => u.schoolId === schoolId);
+    const existingProfiles = db.staffProfiles.filter((p: any) => schoolUsers.some((u: any) => u.id === p.userId));
+    let maxId = 0;
+    existingProfiles.forEach((p: any) => {
+        if (p.staffId && p.staffId.startsWith('EMP-')) {
+            const num = parseInt(p.staffId.replace('EMP-', ''));
+            if (!isNaN(num) && num > maxId) maxId = num;
+        }
+    });
+
+    for (let i = 0; i < staffList.length; i++) {
+        const item = staffList[i];
+        const rowNum = i + 2; // CSV is 1-indexed headers, so first data row is 2
+
+        if (!item.firstName || !item.firstName.trim()) {
+            errors.push(`Row ${rowNum}: First Name is required`);
+            continue;
+        }
+        if (!item.email || !item.email.trim()) {
+            errors.push(`Row ${rowNum}: Email is required`);
+            continue;
+        }
+
+        // Validate email format basic
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(item.email.trim())) {
+            errors.push(`Row ${rowNum}: Invalid email format '${item.email}'`);
+            continue;
+        }
+
+        const existing = db.users.find(u => u.email.toLowerCase() === item.email.trim().toLowerCase());
+        if (existing) {
+            // Update existing user details
+            existing.name = `${item.firstName.trim()} ${item.lastName?.trim() || ''}`.trim();
+            existing.designation = item.designation?.trim() || item.role?.trim() || existing.designation || 'Staff';
+            if (item.password) {
+                existing.password = await hashPassword(item.password);
+            }
+            existing.updatedAt = new Date().toISOString();
+
+            // Find or create staff profile
+            let profile = db.staffProfiles.find((p: any) => p.userId === existing.id);
+            if (!profile) {
+                const newProfile: StaffProfile = {
+                    id: `sp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    userId: existing.id,
+                    staffId: item.staffId || `EMP-${maxId.toString().padStart(3, '0')}`,
+                    designation: item.designation?.trim() || item.role?.trim() || 'Teacher',
+                    department: item.department?.trim() || 'Academic',
+                    joiningDate: item.joiningDate || new Date().toISOString().split('T')[0],
+                    salary: Number(item.salary) || 0,
+                    allowances: [],
+                    customDeductions: [],
+                    pfRate: Number(item.pfRate) || 12,
+                    esiRate: Number(item.esiRate) || 0.75,
+                    isPfEnabled: true,
+                    isEsiEnabled: true,
+                    overtimeRate: 1,
+                    workingDaysPerMonth: 30,
+                    paymentMode: item.paymentMode || 'Bank Transfer',
+                    photo: '',
+                    certificate: '',
+                    kycDocument: '',
+                    loans: [],
+                    leaves: [],
+                    reimbursements: [],
+                    status: 'Active',
+                    personalDetails: {
+                        phone: '',
+                        address: '',
+                        bloodGroup: 'O+',
+                        qualification: ''
+                    }
+                };
+                db.staffProfiles.push(newProfile);
+                profile = newProfile;
+            } else {
+                // Update existing profile details
+                profile.joiningDate = item.joiningDate || profile.joiningDate;
+                if (item.staffId) profile.staffId = item.staffId;
+                if (item.designation || item.role) profile.designation = item.designation?.trim() || item.role?.trim() || '';
+                if (item.department) profile.department = item.department?.trim();
+                if (item.salary !== undefined) profile.salary = Number(item.salary);
+                if (item.pfRate !== undefined) profile.pfRate = Number(item.pfRate);
+                if (item.esiRate !== undefined) profile.esiRate = Number(item.esiRate);
+                if (item.paymentMode) profile.paymentMode = item.paymentMode;
+            }
+
+            const activeProfile = profile as StaffProfile;
+            if (!activeProfile.personalDetails) {
+                activeProfile.personalDetails = {
+                    phone: '',
+                    address: '',
+                    bloodGroup: 'O+',
+                    qualification: ''
+                };
+            }
+            activeProfile.personalDetails.phone = item.phone?.trim() || activeProfile.personalDetails.phone || '';
+            activeProfile.personalDetails.altPhone = item.altPhone?.trim() || activeProfile.personalDetails.altPhone || '';
+            activeProfile.personalDetails.whatsapp = item.whatsapp?.trim() || activeProfile.personalDetails.whatsapp || '';
+            activeProfile.personalDetails.dob = item.dob || activeProfile.personalDetails.dob || '';
+            activeProfile.personalDetails.aadhar = item.aadhar?.trim() || activeProfile.personalDetails.aadhar || '';
+            activeProfile.personalDetails.gender = item.gender || activeProfile.personalDetails.gender || 'Male';
+            activeProfile.personalDetails.husbandName = item.husbandName?.trim() || activeProfile.personalDetails.husbandName || '';
+            activeProfile.personalDetails.fatherName = item.fatherName?.trim() || activeProfile.personalDetails.fatherName || '';
+            activeProfile.personalDetails.motherName = item.motherName?.trim() || activeProfile.personalDetails.motherName || '';
+            activeProfile.personalDetails.nationality = item.nationality || activeProfile.personalDetails.nationality || 'INDIAN';
+            activeProfile.personalDetails.religion = item.religion || activeProfile.personalDetails.religion || '';
+            activeProfile.personalDetails.category = item.category || activeProfile.personalDetails.category || '';
+            activeProfile.personalDetails.address = item.fullAddress?.trim() || activeProfile.personalDetails.address || '';
+            activeProfile.personalDetails.pincode = item.pincode?.trim() || activeProfile.personalDetails.pincode || '';
+            activeProfile.personalDetails.city = item.city?.trim() || activeProfile.personalDetails.city || '';
+            activeProfile.personalDetails.state = item.state?.trim() || activeProfile.personalDetails.state || '';
+            activeProfile.personalDetails.country = item.country?.trim() || activeProfile.personalDetails.country || '';
+
+            if (!activeProfile.experience) activeProfile.experience = {};
+            activeProfile.experience.lastOrg = item.lastOrg?.trim() || activeProfile.experience.lastOrg || '';
+            activeProfile.experience.lastJob = item.lastJob?.trim() || activeProfile.experience.lastJob || '';
+            activeProfile.experience.yearsExp = item.yearsExp?.trim() || activeProfile.experience.yearsExp || '';
+
+            if (!activeProfile.bankDetails) activeProfile.bankDetails = {};
+            activeProfile.bankDetails.accHolder = item.accHolder?.trim() || activeProfile.bankDetails.accHolder || '';
+            activeProfile.bankDetails.bankName = item.bankName?.trim() || activeProfile.bankDetails.bankName || '';
+            activeProfile.bankDetails.ifsc = item.ifsc?.trim() || activeProfile.bankDetails.ifsc || '';
+            activeProfile.bankDetails.accNo = item.accNo?.trim() || activeProfile.bankDetails.accNo || '';
+            activeProfile.bankDetails.panNo = item.panNo?.trim() || activeProfile.bankDetails.panNo || '';
+            activeProfile.bankDetails.pfAccNo = item.pfAccNo?.trim() || activeProfile.bankDetails.pfAccNo || '';
+            activeProfile.bankDetails.uanNo = item.uanNo?.trim() || activeProfile.bankDetails.uanNo || '';
+
+            if (item.qualifications && item.qualifications.length > 0) {
+                activeProfile.qualifications = item.qualifications.map((q, idx) => ({
+                    id: `q_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+                    name: q.name || '',
+                    college: q.college || '',
+                    year: q.year || '',
+                    document: q.document || ''
+                }));
+            }
+
+            continue;
+        }
+
+        // Map role string to database enum role format
+        const inputRole = (item.role || 'TEACHER').toUpperCase();
+        let role: UserRole = 'STAFF';
+        if (inputRole.includes('ADMIN') || inputRole.includes('SCHOOL')) {
+            role = 'SCHOOL_ADMIN';
+        }
+
+        const defaultPass = item.password || 'password123';
+        const hashedPwd = await hashPassword(defaultPass);
+        
+        const userId = `u_${randomUUID()}`;
+        const newUser: User = {
+            id: userId,
+            name: `${item.firstName.trim()} ${item.lastName?.trim() || ''}`.trim(),
+            email: item.email.trim(),
+            role: role,
+            password: hashedPwd,
+            status: 'Active',
+            schoolId: schoolId,
+            designation: item.designation?.trim() || item.role?.trim() || 'Staff',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+
+        // Increment employee ID
+        maxId++;
+        const empId = item.staffId || `EMP-${maxId.toString().padStart(3, '0')}`;
+
+        const newProfile: StaffProfile = {
+            id: `sp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId: userId,
+            staffId: empId,
+            designation: item.designation?.trim() || item.role?.trim() || 'Staff',
+            department: item.department?.trim() || 'General',
+            joiningDate: item.joiningDate || new Date().toISOString().split('T')[0],
+            salary: Number(item.salary) || 0,
+            allowances: [],
+            customDeductions: [],
+            pfRate: Number(item.pfRate) || 12,
+            esiRate: Number(item.esiRate) || 0.75,
+            isPfEnabled: true,
+            isEsiEnabled: true,
+            overtimeRate: 1,
+            workingDaysPerMonth: 30,
+            paymentMode: item.paymentMode || 'Bank Transfer',
+            photo: '',
+            certificate: '',
+            kycDocument: '',
+            loans: [],
+            leaves: [],
+            reimbursements: [],
+            personalDetails: {
+                phone: item.phone?.trim() || '',
+                altPhone: item.altPhone?.trim() || '',
+                whatsapp: item.whatsapp?.trim() || '',
+                address: item.fullAddress?.trim() || '',
+                pincode: item.pincode?.trim() || '',
+                city: item.city?.trim() || '',
+                state: item.state?.trim() || '',
+                country: item.country?.trim() || '',
+                bloodGroup: 'O+',
+                qualification: '',
+                dob: item.dob || '',
+                aadhar: item.aadhar?.trim() || '',
+                gender: item.gender || 'Male',
+                husbandName: item.husbandName?.trim() || '',
+                fatherName: item.fatherName?.trim() || '',
+                motherName: item.motherName?.trim() || '',
+                nationality: item.nationality || 'INDIAN',
+                religion: item.religion || '',
+                category: item.category || '',
+            },
+            qualifications: item.qualifications?.map((q, idx) => ({
+                id: `q_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+                name: q.name || '',
+                college: q.college || '',
+                year: q.year || '',
+                document: q.document || ''
+            })) || [],
+            experience: {
+                lastOrg: item.lastOrg || '',
+                lastJob: item.lastJob || '',
+                yearsExp: item.yearsExp || '',
+            },
+            bankDetails: {
+                accHolder: item.accHolder || '',
+                bankName: item.bankName || '',
+                ifsc: item.ifsc || '',
+                accNo: item.accNo || '',
+                panNo: item.panNo || '',
+                pfAccNo: item.pfAccNo || '',
+                uanNo: item.uanNo || '',
+            },
+            status: 'Active'
+        };
+
+        importedUsers.push(newUser);
+        importedProfiles.push(newProfile);
+    }
+
+    if (errors.length > 0) {
+        return { success: false, errors };
+    }
+
+    // Actually insert them if no validation errors occurred
+    db.users.push(...importedUsers);
+    db.staffProfiles.push(...importedProfiles);
+    writeDb(db);
+
+    revalidatePath('/school-admin/staff');
+    revalidatePath('/school-admin/payroll');
+    return { success: true, count: importedProfiles.length };
+}
+
 

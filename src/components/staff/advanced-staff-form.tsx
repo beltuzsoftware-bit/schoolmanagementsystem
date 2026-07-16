@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Eye, EyeOff, Trash2, User, Landmark, Briefcase, MapPin, GraduationCap, Building2, KeyRound, Wallet, Percent, Phone, Mail, Calendar, CreditCard, Hash, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { StaffRole, Qualification, SalaryComponent } from '@/types/staff';
 import { UserRole, StaffFormConfig } from '@/types';
-import { addStaff, editStaff, getNextEmployeeId, getPackages, getSchools } from '@/app/actions';
+import { addStaff, editStaff, getNextEmployeeId, getPackages, getSchools, getCustomStaffRoles } from '@/app/actions';
 import { toast } from 'sonner';
 import ImageCropper from './image-cropper';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 
 const compressBase64Image = (base64Str: string, maxWidth = 400, maxHeight = 400, quality = 0.75): Promise<string> => {
     return new Promise((resolve) => {
@@ -47,6 +48,74 @@ const compressBase64Image = (base64Str: string, maxWidth = 400, maxHeight = 400,
     });
 };
 
+const formatScientificNumber = (val: string | undefined | number): string => {
+    if (val === undefined || val === null) return '';
+    const cleanStr = String(val).trim();
+    if (/^[+\-]?\d+(\.\d+)?[eE][+\-]?\d+$/.test(cleanStr)) {
+        try {
+            const num = Number(cleanStr);
+            if (!isNaN(num)) {
+                return num.toFixed(0);
+            }
+        } catch (e) {
+            // fallback
+        }
+    }
+    return cleanStr;
+};
+
+const normalizeDateToYYYYMMDD = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    const cleanStr = dateStr.trim();
+    if (!cleanStr) return '';
+
+    // If it's already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+        return cleanStr;
+    }
+
+    // Try parsing DD/MM/YY or DD/MM/YYYY
+    const dmyMatch = cleanStr.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/);
+    if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        let year = dmyMatch[3];
+        if (year.length === 2) {
+            const yNum = parseInt(year);
+            year = yNum >= 70 ? `19${year}` : `20${year}`;
+        }
+        return `${year}-${month}-${day}`;
+    }
+
+    // Try parsing YY/MM/DD or YYYY/MM/DD
+    const ymdMatch = cleanStr.match(/^(\d{2}|\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+    if (ymdMatch) {
+        let year = ymdMatch[1];
+        if (year.length === 2) {
+            const yNum = parseInt(year);
+            year = yNum >= 70 ? `19${year}` : `20${year}`;
+        }
+        const month = ymdMatch[2].padStart(2, '0');
+        const day = ymdMatch[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Try JavaScript Date parser as fallback
+    try {
+        const parsed = new Date(cleanStr);
+        if (!isNaN(parsed.getTime())) {
+            const year = parsed.getFullYear();
+            const month = String(parsed.getMonth() + 1).padStart(2, '0');
+            const day = String(parsed.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return cleanStr;
+};
+
 interface AdvancedStaffFormProps {
     open: boolean;
     onClose: () => void;
@@ -79,6 +148,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
         gender: 'Male',
         husbandName: '',
         fatherName: '',
+        motherName: '',
         nationality: 'INDIAN',
         religion: '',
         category: '',
@@ -113,15 +183,22 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
     });
 
     const [config, setConfig] = useState<StaffFormConfig[]>([]);
+    const [customRoles, setCustomRoles] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchConfig = async () => {
             if (!schoolId) return;
             try {
                 const { getStaffFormConfigForSchool } = await import('@/app/actions');
-                const config = await getStaffFormConfigForSchool(schoolId);
-                if (config) {
-                    setConfig(config);
+                const [configData, rolesData] = await Promise.all([
+                    getStaffFormConfigForSchool(schoolId),
+                    getCustomStaffRoles(schoolId)
+                ]);
+                if (configData) {
+                    setConfig(configData);
+                }
+                if (rolesData) {
+                    setCustomRoles(rolesData);
                 }
             } catch (err) {
                 console.error('Failed to load form config', err);
@@ -151,15 +228,16 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
             setFormData({
                 firstName: names[0] || '',
                 lastName: names.slice(1).join(' ') || '',
-                phone: p.personalDetails?.phone || '',
-                altPhone: p.personalDetails?.altPhone || '',
-                whatsapp: p.personalDetails?.whatsapp || '',
+                phone: formatScientificNumber(p.personalDetails?.phone),
+                altPhone: formatScientificNumber(p.personalDetails?.altPhone),
+                whatsapp: formatScientificNumber(p.personalDetails?.whatsapp),
                 email: u.email || '',
-                dob: p.personalDetails?.dob || '',
-                aadhar: p.personalDetails?.aadhar || '',
+                dob: normalizeDateToYYYYMMDD(p.personalDetails?.dob),
+                aadhar: formatScientificNumber(p.personalDetails?.aadhar),
                 gender: p.personalDetails?.gender || 'Male',
                 husbandName: p.personalDetails?.husbandName || '',
                 fatherName: p.personalDetails?.fatherName || '',
+                motherName: p.personalDetails?.motherName || '',
                 nationality: p.personalDetails?.nationality || 'INDIAN',
                 religion: p.personalDetails?.religion || '',
                 category: p.personalDetails?.category || '',
@@ -179,8 +257,8 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                 panNo: p.bankDetails?.panNo || '',
                 pfAccNo: p.bankDetails?.pfAccNo || '',
                 uanNo: p.bankDetails?.uanNo || '',
-                role: p.role || StaffRole.TEACHER,
-                joiningDate: p.joiningDate || new Date().toISOString().split('T')[0],
+                role: u.designation || u.role || 'Teacher',
+                joiningDate: normalizeDateToYYYYMMDD(p.joiningDate),
                 staffId: p.staffId || '',
                 designation: p.designation || '',
                 department: p.department || '',
@@ -200,7 +278,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
             // Reset form if closing edit and opening add
             setFormData({
                 firstName: '', lastName: '', phone: '', altPhone: '', whatsapp: '', email: '',
-                dob: '', aadhar: '', gender: 'Male', husbandName: '', fatherName: '',
+                dob: '', aadhar: '', gender: 'Male', husbandName: '', fatherName: '', motherName: '',
                 nationality: 'INDIAN', religion: '', category: '', maritalStatus: '',
                 lastOrg: '', lastJob: '', yearsExp: '', pincode: '', city: '',
                 state: '', country: '', fullAddress: '', accHolder: '', bankName: '',
@@ -322,7 +400,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
         const userData = {
             name: `${formData.firstName} ${formData.lastName}`.trim(),
             email: formData.email,
-            role: 'STAFF' as UserRole,
+            role: formData.role as any,
             schoolId: schoolId,
             password: formData.password || 'password123'
         };
@@ -356,6 +434,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                 gender: formData.gender,
                 husbandName: formData.husbandName,
                 fatherName: formData.fatherName,
+                motherName: formData.motherName,
                 nationality: formData.nationality,
                 religion: formData.religion,
                 category: formData.category,
@@ -409,12 +488,12 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-hidden no-print">
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-100/80">
                 {/* Header */}
-                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-10">
+                <div className="px-8 py-5 border-b border-slate-150 flex items-center justify-between sticky top-0 bg-gradient-to-r from-slate-50 to-indigo-50/20 backdrop-blur-md z-10 rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-blue-600 shadow-sm shadow-indigo-100"></div>
-                        <h2 className="text-lg font-black text-slate-800 tracking-tight">{initialData ? 'Edit Staff Member' : 'Add Employee'}</h2>
+                        <div className="w-3 h-6 rounded-full bg-gradient-to-b from-indigo-600 to-violet-600 shadow-sm shadow-indigo-200 animate-pulse"></div>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight">{initialData ? 'Edit Staff Member' : 'Add Employee'}</h2>
                     </div>
-                    <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all duration-300 hover:rotate-90">
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-slate-200/50 rounded-xl transition-all duration-300 hover:rotate-90">
                         <X size={20} className="text-slate-500 hover:text-slate-800" />
                     </button>
                 </div>
@@ -424,7 +503,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Personal Details */}
                     <section>
-                        <SectionHeader icon={<User size={18} />} title="Personal Details:" />
+                        <SectionHeader icon={<User size={18} />} title="Personal Details:" colorClass="text-indigo-600 bg-indigo-50/40 border-indigo-100/60" />
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <InputField label="First name *" name="firstName" value={formData.firstName} onChange={handleChange} required />
                             <InputField label="Last name" name="lastName" value={formData.lastName} onChange={handleChange} />
@@ -432,11 +511,23 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                             <InputField label="Alternate mobile no." name="altPhone" value={formData.altPhone} onChange={handleChange} />
                             <InputField label="Whatsapp no." name="whatsapp" value={formData.whatsapp} onChange={handleChange} />
                             <InputField label="Email *" name="email" type="email" value={formData.email} onChange={handleChange} required />
-                            <InputField label="DOB" name="dob" type="date" value={formData.dob} onChange={handleChange} />
+                            <div className="flex flex-col gap-1.5 group">
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">DOB</label>
+                                <CustomDatePicker
+                                    date={formData.dob && !isNaN(new Date(formData.dob).getTime()) ? new Date(formData.dob) : null}
+                                    onSelect={(newDate) => {
+                                        const yyyy = newDate.getFullYear();
+                                        const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+                                        const dd = String(newDate.getDate()).padStart(2, '0');
+                                        setFormData(prev => ({ ...prev, dob: `${yyyy}-${mm}-${dd}` }));
+                                    }}
+                                    placeholder="DD-MM-YYYY"
+                                />
+                            </div>
                             <InputField label="Aadhar no." name="aadhar" value={formData.aadhar} onChange={handleChange} />
 
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-semibold text-slate-600 uppercase">Gender</label>
+                                <label className="text-xs font-semibold text-slate-700 uppercase">Gender</label>
                                 <div className="flex items-center gap-4 py-2">
                                     {['Male', 'Female', 'Other'].map(g => (
                                         <label key={g} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -455,8 +546,9 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                             {shouldShow('husbandName') && <InputField label="Husband name" name="husbandName" value={formData.husbandName} onChange={handleChange} required={isRequired('husbandName')} />}
                             {shouldShow('fatherName') && <InputField label="Father name" name="fatherName" value={formData.fatherName} onChange={handleChange} required={isRequired('fatherName')} />}
+                            {shouldShow('motherName') && <InputField label="Mother name" name="motherName" value={formData.motherName} onChange={handleChange} required={isRequired('motherName')} />}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Photo</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Photo</label>
                                 <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-100">
                                     {formData.photo ? (
                                         <div className="relative w-16 h-20 rounded-lg overflow-hidden border border-indigo-200 shadow-sm shrink-0 bg-white">
@@ -490,8 +582,8 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                     </section>
 
                     {/* Section: Salary & Finance */}
-                    <section className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                        <SectionHeader icon={<Wallet size={18} />} title="Salary & Financial Configuration:" />
+                    <section className="bg-emerald-50/10 p-6 rounded-3xl border border-emerald-100/60 shadow-[0_4px_20px_rgba(16,185,129,0.02)]">
+                        <SectionHeader icon={<Wallet size={18} />} title="Salary & Financial Configuration:" colorClass="text-emerald-600 bg-emerald-50/50 border-emerald-100" />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                             <div className="space-y-1.5">
@@ -662,7 +754,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Religion & Category */}
                     <section>
-                        <SectionHeader icon={<Building2 size={18} />} title="Religion & Category:" />
+                        <SectionHeader icon={<Building2 size={18} />} title="Religion & Category:" colorClass="text-rose-600 bg-rose-50/40 border-rose-100/60" />
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <SelectField label="Nationality" name="nationality" value={formData.nationality} onChange={handleChange} options={['INDIAN', 'OTHER']} />
                             {shouldShow('religion') && <SelectField label="Religion" name="religion" value={formData.religion} onChange={handleChange} options={['Hindu', 'Muslim', 'Christian', 'Sikh', 'Other']} />}
@@ -674,7 +766,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                     {/* Section: Experience */}
                     {shouldShow('experience') && (
                         <section>
-                            <SectionHeader icon={<Briefcase size={18} />} title="Experience (If Any):" />
+                            <SectionHeader icon={<Briefcase size={18} />} title="Experience (If Any):" colorClass="text-amber-600 bg-amber-50/40 border-amber-100/60" />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <InputField label="Last organization name" name="lastOrg" value={formData.lastOrg} onChange={handleChange} />
                                 <InputField label="Last job position" name="lastJob" value={formData.lastJob} onChange={handleChange} />
@@ -685,10 +777,10 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Qualifications */}
                     <section>
-                        <SectionHeader icon={<GraduationCap size={18} />} title="Qualification:" />
-                        <div className="border border-slate-200 rounded-lg overflow-hidden">
+                        <SectionHeader icon={<GraduationCap size={18} />} title="Qualification:" colorClass="text-sky-600 bg-sky-50/40 border-sky-100/60" />
+                        <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
                             <table className="w-full text-left">
-                                <thead className="bg-[#f0f9f1] border-b border-slate-200">
+                                <thead className="bg-sky-50/50 border-b border-slate-200 text-sky-900">
                                     <tr className="text-xs font-bold text-slate-700">
                                         <th className="px-4 py-3">Qualification</th>
                                         <th className="px-4 py-3">College/University</th>
@@ -768,14 +860,14 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Address */}
                     <section>
-                        <SectionHeader icon={<MapPin size={18} />} title="Residential Address:" />
+                        <SectionHeader icon={<MapPin size={18} />} title="Residential Address:" colorClass="text-purple-600 bg-purple-50/40 border-purple-100/60" />
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <InputField label="Pincode" name="pincode" value={formData.pincode} onChange={handleChange} />
                             <InputField label="City" name="city" value={formData.city} onChange={handleChange} />
                             <InputField label="State" name="state" value={formData.state} onChange={handleChange} />
                             <InputField label="Country" name="country" value={formData.country} onChange={handleChange} />
                             <div className="md:col-span-4 flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold text-slate-600 uppercase">Address</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5">Address</label>
                                 <textarea
                                     name="fullAddress"
                                     value={formData.fullAddress}
@@ -786,7 +878,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                                         }
                                     }}
                                     rows={2}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.005)] placeholder:text-slate-400 font-medium text-slate-800"
                                 />
                             </div>
                         </div>
@@ -795,7 +887,7 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                     {/* Section: Bank Details */}
                     {shouldShow('bankDetails') && (
                         <section>
-                            <SectionHeader icon={<Landmark size={18} />} title="Bank Account Details:" />
+                            <SectionHeader icon={<Landmark size={18} />} title="Bank Account Details:" colorClass="text-teal-600 bg-teal-50/40 border-teal-100/60" />
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 <InputField label="Account Holder Name" name="accHolder" value={formData.accHolder} onChange={handleChange} />
                                 <InputField label="Bank Name" name="bankName" value={formData.bankName} onChange={handleChange} />
@@ -812,37 +904,49 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Employment Details */}
                     <section>
-                        <SectionHeader icon={<Briefcase size={18} />} title="Employment Details:" />
+                        <SectionHeader icon={<Briefcase size={18} />} title="Employment Details:" colorClass="text-blue-600 bg-blue-50/40 border-blue-100/60" />
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold text-slate-600 uppercase">Select Role *</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5">Select Role *</label>
                                 <select
                                     name="role"
                                     value={formData.role}
                                     onChange={handleChange}
                                     required
-                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white cursor-pointer"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white cursor-pointer transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.005)] font-medium text-slate-800"
                                 >
-                                    {Object.values(StaffRole).map(role => (
+                                    {(customRoles.length > 0 ? customRoles : ['Admin', 'Sub Admin', 'Principal', 'Teacher', 'Accountant', 'Receptionist', 'Librarian', 'Warden']).map(role => (
                                         <option key={role} value={role}>{role}</option>
                                     ))}
                                 </select>
                             </div>
-                            <InputField label="Joining Date" name="joiningDate" type="date" value={formData.joiningDate} onChange={handleChange} />
+                             <div className="flex flex-col gap-1.5 group">
+                                 <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">Joining Date</label>
+                                 <CustomDatePicker
+                                     date={formData.joiningDate && !isNaN(new Date(formData.joiningDate).getTime()) ? new Date(formData.joiningDate) : null}
+                                     onSelect={(newDate) => {
+                                         const yyyy = newDate.getFullYear();
+                                         const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+                                         const dd = String(newDate.getDate()).padStart(2, '0');
+                                         setFormData(prev => ({ ...prev, joiningDate: `${yyyy}-${mm}-${dd}` }));
+                                     }}
+                                     placeholder="DD-MM-YYYY"
+                                 />
+                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold text-slate-600 uppercase">Employee ID</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5">Employee ID</label>
                                 <div className="relative">
                                     <input
                                         name="staffId"
                                         value={formData.staffId}
                                         onChange={handleChange}
                                         placeholder="EMP-XXX"
-                                        className="w-full pl-3 pr-16 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                                        className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.005)] font-medium text-slate-800"
                                     />
                                     <button
                                         type="button"
                                         onClick={handleAutoGenerateId}
-                                        className="absolute right-1 top-1 bottom-1 px-2 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded hover:bg-indigo-100 transition-colors"
+                                        className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-lg hover:bg-indigo-100 transition-all duration-200 shadow-sm border border-indigo-100"
                                     >
                                         GENERATE
                                     </button>
@@ -858,28 +962,28 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
 
                     {/* Section: Login Details */}
                     <section>
-                        <SectionHeader icon={<KeyRound size={18} />} title="Login Details:" />
+                        <SectionHeader icon={<KeyRound size={18} />} title="Login Details:" colorClass="text-violet-600 bg-violet-50/40 border-violet-100/60" />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-700 uppercase">Username</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5">Username</label>
                                 <input
                                     name="username"
                                     value={formData.username}
                                     onChange={handleChange}
                                     placeholder="Leave empty for auto-generation"
-                                    className="w-full px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 outline-none text-sm bg-indigo-50/30 hover:bg-indigo-50/50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.005)] font-medium text-slate-800"
                                 />
                                 <p className="text-[10px] text-slate-500 italic">If left empty, the email address will be used as the username.</p>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-700 uppercase">Password</label>
+                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5">Password</label>
                                 <div className="relative">
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         name="password"
                                         value={formData.password}
                                         onChange={handleChange}
-                                        className="w-full pl-4 pr-10 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-indigo-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 outline-none text-sm bg-indigo-50/30 hover:bg-indigo-50/50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.005)] font-medium text-slate-800"
                                     />
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors">
                                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -894,9 +998,9 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between sticky bottom-0 z-10 rounded-b-xl">
-                    <button type="button" onClick={onClose} className="px-8 py-2.5 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-all">Close</button>
-                    <button type="submit" disabled={loading} className="px-10 py-2.5 bg-[#1d7cf2] text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-100 hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <div className="px-8 py-4 border-t border-slate-150 bg-slate-50/85 backdrop-blur-md flex justify-between sticky bottom-0 z-10 rounded-b-2xl">
+                    <button type="button" onClick={onClose} className="px-8 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all">Close</button>
+                    <button type="submit" disabled={loading} className="px-10 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200/50 hover:from-indigo-500 hover:to-violet-500 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed">
                         {loading ? (initialData ? 'Updating...' : 'Adding...') : (initialData ? 'Update Staff' : 'Submit')}
                     </button>
                 </div>
@@ -916,10 +1020,14 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
     );
 }
 
-function SectionHeader({ icon, title }: { icon: React.ReactNode, title: string }) {
+function SectionHeader({ icon, title, colorClass = "text-indigo-600 bg-indigo-50/40 border-indigo-100/60" }: { icon: React.ReactNode, title: string, colorClass?: string }) {
+    const themeBg = colorClass.split(' ').find(c => c.startsWith('bg-')) || 'bg-slate-50';
+    const themeBorder = colorClass.split(' ').find(c => c.startsWith('border-')) || 'border-slate-100';
+    const themeText = colorClass.split(' ').find(c => c.startsWith('text-')) || 'text-slate-700';
+
     return (
-        <div className="flex items-center gap-3 mb-6 bg-slate-50 border border-slate-100/80 px-4 py-3 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.01)] transition-all duration-300 hover:border-slate-200">
-            <span className="p-2 rounded-xl bg-white text-indigo-600 shadow-sm border border-slate-100">{icon}</span>
+        <div className={`flex items-center gap-3 mb-6 border ${themeBg} ${themeBorder} px-4 py-3 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 hover:border-slate-250`}>
+            <span className={`p-2 rounded-xl bg-white ${themeText} shadow-sm border ${themeBorder}`}>{icon}</span>
             <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">{title}</h3>
         </div>
     );
@@ -928,7 +1036,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode, title: string }
 function InputField({ label, type = "text", name, value, onChange, required, placeholder }: any) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
+            <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
             <input
                 type={type}
                 name={name}
@@ -943,7 +1051,7 @@ function InputField({ label, type = "text", name, value, onChange, required, pla
                 }}
                 required={required}
                 placeholder={placeholder}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 outline-none text-sm bg-white transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.01)] placeholder:text-slate-400 font-medium text-slate-800"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgba(0,0,0,0.005)] placeholder:text-slate-400 font-medium text-slate-800"
             />
         </div>
     );
@@ -952,13 +1060,13 @@ function InputField({ label, type = "text", name, value, onChange, required, pla
 function SelectField({ label, options, name, value, onChange, required }: any) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
+            <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
             <select
                 name={name}
                 value={value}
                 onChange={onChange}
                 required={required}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 outline-none text-sm bg-white cursor-pointer transition-all duration-300 shadow-[0_2px_6px_rgb(0,0,0,0.01)] font-medium text-slate-800"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white cursor-pointer transition-all duration-300 shadow-[0_2px_6px_rgba(0,0,0,0.005)] font-medium text-slate-800"
             >
                 <option value="">Select</option>
                 {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}

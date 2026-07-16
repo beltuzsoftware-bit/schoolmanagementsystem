@@ -356,7 +356,11 @@ export default function StudentFeeDetailsV2({
 
             // --- TRANSPORT FEE INJECTION ---
             let transportRemainingDue = 0;
-            if (transportInfo && transportInfo.monthlyFee > 0) {
+            const isActiveMonth = transportInfo?.activeMonths
+                ? transportInfo.activeMonths.includes(month.full)
+                : true;
+
+            if (transportInfo && transportInfo.monthlyFee > 0 && isActiveMonth) {
                 const transportTxns = allTransactions.filter(t =>
                     t.studentId === student.id &&
                     t.monthIndex === mIdx &&
@@ -434,7 +438,7 @@ export default function StudentFeeDetailsV2({
                 monthIndex: mIdx,
                 monthName: month.name,
                 feeDetails,
-                totalDue: financials.totalDue + (transportInfo && transportInfo.monthlyFee > 0 ? (transportInfo.monthlyFee / 30 * (transportDays[mIdx] ?? 30)) : 0),
+                totalDue: financials.totalDue + (transportInfo && transportInfo.monthlyFee > 0 && isActiveMonth ? (transportInfo.monthlyFee / 30 * (transportDays[mIdx] ?? 30)) : 0),
                 totalPaid: financials.totalPaid,
                 totalDiscount: financials.totalDiscount,
                 remainingDue: financials.remainingDue + transportRemainingDue

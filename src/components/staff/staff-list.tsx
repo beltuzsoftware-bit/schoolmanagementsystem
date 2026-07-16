@@ -14,9 +14,10 @@ interface StaffListProps {
     schoolId: string;
     refreshTrigger: number;
     onEdit?: (staff: any) => void;
+    onView?: (staff: any) => void;
 }
 
-export function StaffList({ schoolId, refreshTrigger, onEdit }: StaffListProps) {
+export function StaffList({ schoolId, refreshTrigger, onEdit, onView }: StaffListProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [staff, setStaff] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -62,6 +63,18 @@ export function StaffList({ schoolId, refreshTrigger, onEdit }: StaffListProps) 
                 setStaff(staff.map(s => s.id === staffId ? { ...s, status: nextStatus } : s));
             } else {
                 toast.error('Failed to update staff member status');
+            }
+        }
+    };
+
+    const handleDeleteStaff = async (staffId: string, userId: string, name: string) => {
+        if (confirm(`Are you sure you want to permanently delete staff member ${name}? This action cannot be undone and will delete their login and profile.`)) {
+            const res = await deleteStaff(staffId, userId);
+            if (res.success) {
+                toast.success('Staff member permanently deleted');
+                setStaff(staff.filter(s => s.id !== staffId));
+            } else {
+                toast.error('Failed to delete staff member');
             }
         }
     };
@@ -165,13 +178,19 @@ export function StaffList({ schoolId, refreshTrigger, onEdit }: StaffListProps) 
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem>View Profile</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => onView?.(item)}>View Profile</DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => onEdit?.(item)}>Edit Details</DropdownMenuItem>
                                                 <DropdownMenuItem 
                                                     className={item.status === 'Active' ? 'text-amber-600 font-bold' : 'text-emerald-600 font-bold'} 
                                                     onClick={() => handleToggleStatus(item.id, item.userId, item.status || 'Active')}
                                                 >
                                                     {item.status === 'Active' ? 'Deactivate Staff' : 'Activate Staff'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem 
+                                                    className="text-rose-600 font-bold" 
+                                                    onClick={() => handleDeleteStaff(item.id, item.userId, item.user?.name || '')}
+                                                >
+                                                    Delete Staff
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>

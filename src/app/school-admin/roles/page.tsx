@@ -12,14 +12,15 @@ import { Plus, UserPlus, Shield, MoreHorizontal, Loader2, Pencil, Trash2 } from 
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { getUsers, addUser, updateUser, deleteUser } from '@/app/actions';
+import { getUsers, addUser, updateUser, deleteUser, getCustomStaffRoles, updateCustomStaffRoles } from '@/app/actions';
 import { User } from '@/types';
-
-
-const ROLES = ['Admin', 'Sub Admin', 'Principal', 'Teacher', 'Accountant', 'Receptionist', 'Librarian'];
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SimpleListManager from '@/components/school-admin/settings/simple-list-manager';
 
 export default function RolesPage() {
     const [staff, setStaff] = useState<User[]>([]);
+    const [roles, setRoles] = useState<string[]>([]);
+    const [schoolId, setSchoolId] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -40,18 +41,38 @@ export default function RolesPage() {
             // Get current user context
             const currentUserData = localStorage.getItem('kummi_user');
             const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
-            const schoolId = currentUser?.schoolId;
+            const sId = currentUser?.schoolId || '';
+            setSchoolId(sId);
 
-            // Fetch users excluding system-level roles
-            const data = await getUsers({
-                schoolId,
-                excludeRoles: ['SUPER_ADMIN', 'ROOT']
-            });
-            setStaff(data);
+            // Fetch users excluding system-level roles and get custom roles
+            const [usersData, rolesData] = await Promise.all([
+                getUsers({
+                    schoolId: sId,
+                    excludeRoles: ['SUPER_ADMIN', 'ROOT']
+                }),
+                getCustomStaffRoles(sId)
+            ]);
+            setStaff(usersData);
+            setRoles(rolesData);
         } catch (error) {
-            console.error('Failed to load staff', error);
+            console.error('Failed to load staff and roles', error);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleUpdateRoles(newRoles: string[]) {
+        if (!schoolId) return;
+        try {
+            const res = await updateCustomStaffRoles(schoolId, newRoles);
+            if (res.success) {
+                setRoles(newRoles);
+            } else {
+                alert(res.error || 'Failed to update roles');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error updating roles');
         }
     }
 
@@ -152,122 +173,144 @@ export default function RolesPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Staff & Roles</h1>
                     <p className="text-slate-500">Manage detailed permissions and staff accounts.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline"><Shield className="mr-2 h-4 w-4" /> Permissions</Button>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="bg-indigo-600 hover:bg-indigo-700"><UserPlus className="mr-2 h-4 w-4" /> Add Staff</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Add New Staff Member</DialogTitle>
-                                <DialogDescription>Create a login for a new staff member.</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right">Name</Label>
-                                    <Input
-                                        className="col-span-3"
-                                        placeholder="Full Name"
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right">Email</Label>
-                                    <Input
-                                        className="col-span-3"
-                                        type="email"
-                                        placeholder="staff@school.edu"
-                                        value={formData.email}
-                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right">Role</Label>
-                                    <Select
-                                        value={formData.role}
-                                        onValueChange={val => setFormData({ ...formData, role: val })}
-                                    >
-                                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Select Role" /></SelectTrigger>
-                                        <SelectContent>
-                                            {ROLES.map(role => (
-                                                <SelectItem key={role} value={role}>{role}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit" onClick={handleCreateUser} disabled={submitting}>
-                                    {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Create User
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </div>
             </div>
 
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                                        Loading staff...
-                                    </TableCell>
-                                </TableRow>
-                            ) : staff.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                                        No staff members found. Add one to get started.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                staff.map((s) => (
-                                    <TableRow key={s.id}>
-                                        <TableCell className="font-medium">{s.name}</TableCell>
-                                        <TableCell>{s.email}</TableCell>
-                                        <TableCell><Badge variant="outline">{s.designation || s.role}</Badge></TableCell>
-                                        <TableCell><Badge className="bg-green-500">{(s as any).status || 'Active'}</Badge></TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => handleEditClick(s)}>
-                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleDeleteClick(s)}
-                                                        className="text-red-600"
-                                                    >
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
+            <Tabs defaultValue="accounts" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                    <TabsTrigger value="accounts" className="font-bold">Staff Accounts</TabsTrigger>
+                    <TabsTrigger value="roles" className="font-bold">Custom Roles</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="accounts" className="space-y-6 mt-6">
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline"><Shield className="mr-2 h-4 w-4" /> Permissions</Button>
+                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="bg-indigo-600 hover:bg-indigo-700"><UserPlus className="mr-2 h-4 w-4" /> Add Staff</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Add New Staff Member</DialogTitle>
+                                    <DialogDescription>Create a login for a new staff member.</DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label className="text-right">Name</Label>
+                                        <Input
+                                            className="col-span-3"
+                                            placeholder="Full Name"
+                                            value={formData.name}
+                                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label className="text-right">Email</Label>
+                                        <Input
+                                            className="col-span-3"
+                                            type="email"
+                                            placeholder="staff@school.edu"
+                                            value={formData.email}
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label className="text-right">Role</Label>
+                                        <Select
+                                            value={formData.role}
+                                            onValueChange={val => setFormData({ ...formData, role: val })}
+                                        >
+                                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select Role" /></SelectTrigger>
+                                            <SelectContent>
+                                                {roles.map(role => (
+                                                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button type="submit" onClick={handleCreateUser} disabled={submitting}>
+                                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                        Create User
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+
+                    <Card>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                                </TableHeader>
+                                <TableBody>
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                                                Loading staff...
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : staff.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                                                No staff members found. Add one to get started.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        staff.map((s) => (
+                                            <TableRow key={s.id}>
+                                                <TableCell className="font-medium">{s.name}</TableCell>
+                                                <TableCell>{s.email}</TableCell>
+                                                <TableCell><Badge variant="outline">{s.designation || s.role}</Badge></TableCell>
+                                                <TableCell><Badge className="bg-green-500">{(s as any).status || 'Active'}</Badge></TableCell>
+                                                <TableCell className="text-right">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handleEditClick(s)}>
+                                                                <Pencil className="mr-2 h-4 w-4" />
+                                                                Edit
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleDeleteClick(s)}
+                                                                className="text-red-600"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="roles" className="mt-6">
+                    <Card className="p-6">
+                        <SimpleListManager
+                            title="Custom Staff Roles"
+                            description="Configure custom staff roles used inside the staff details, directory, and payroll profiles."
+                            items={roles}
+                            onUpdate={handleUpdateRoles}
+                            placeholder="e.g. Sports Teacher, Security Guard"
+                        />
+                    </Card>
+                </TabsContent>
+            </Tabs>
 
             {/* Edit Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -304,7 +347,7 @@ export default function RolesPage() {
                             >
                                 <SelectTrigger className="col-span-3"><SelectValue placeholder="Select Role" /></SelectTrigger>
                                 <SelectContent>
-                                    {ROLES.map(role => (
+                                    {roles.map(role => (
                                         <SelectItem key={role} value={role}>{role}</SelectItem>
                                     ))}
                                 </SelectContent>

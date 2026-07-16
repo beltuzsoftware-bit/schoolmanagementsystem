@@ -30,6 +30,58 @@ import {
 } from '@/lib/student-constants';
 import { toast } from 'sonner';
 
+const normalizeDateToYYYYMMDD = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    const cleanStr = dateStr.trim();
+    if (!cleanStr) return '';
+
+    // If it's already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+        return cleanStr;
+    }
+
+    // Try parsing DD/MM/YY or DD/MM/YYYY
+    const dmyMatch = cleanStr.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/);
+    if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        let year = dmyMatch[3];
+        if (year.length === 2) {
+            const yNum = parseInt(year);
+            year = yNum >= 70 ? `19${year}` : `20${year}`;
+        }
+        return `${year}-${month}-${day}`;
+    }
+
+    // Try parsing YY/MM/DD or YYYY/MM/DD
+    const ymdMatch = cleanStr.match(/^(\d{2}|\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+    if (ymdMatch) {
+        let year = ymdMatch[1];
+        if (year.length === 2) {
+            const yNum = parseInt(year);
+            year = yNum >= 70 ? `19${year}` : `20${year}`;
+        }
+        const month = ymdMatch[2].padStart(2, '0');
+        const day = ymdMatch[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Try JavaScript Date parser as fallback
+    try {
+        const parsed = new Date(cleanStr);
+        if (!isNaN(parsed.getTime())) {
+            const year = parsed.getFullYear();
+            const month = String(parsed.getMonth() + 1).padStart(2, '0');
+            const day = String(parsed.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return cleanStr;
+};
+
 interface StudentRegistrationFormProps {
     schoolId: string;
     initialData?: Student;
@@ -52,7 +104,7 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
         lastName: '',
         nationality: 'Indian',
         rte: 'No',
-        admissionDate: new Date().toISOString().split('T')[0],
+        admissionDate: initialData?.admissionDate ? normalizeDateToYYYYMMDD(initialData.admissionDate) : new Date().toISOString().split('T')[0],
         specialNeeds: 'No',
         specialNeedsDetails: 'N/A',
         guardianSelection: 'Father',
@@ -73,7 +125,10 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
         percentageCGPA: '',
         result: '',
         recordDateHeightWeight: '',
-        ...initialData
+        ...initialData,
+        dob: initialData?.dob ? normalizeDateToYYYYMMDD(initialData.dob) : '',
+        tcDate: (initialData as any)?.tcDate ? normalizeDateToYYYYMMDD((initialData as any).tcDate) : '',
+        disableDate: (initialData as any)?.disableDate ? normalizeDateToYYYYMMDD((initialData as any).disableDate) : '',
     });
 
     const [isSiblingModalOpen, setIsSiblingModalOpen] = useState(false);
@@ -341,8 +396,7 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
             fieldName.toLowerCase().includes('docupload') ||
             fieldName.toLowerCase().includes('photo') ||
             fieldName.toLowerCase().includes('aadhar') ||
-            fieldName.toLowerCase().includes('certificate') ||
-            fieldName.toLowerCase().includes('id')
+            fieldName.toLowerCase().includes('certificate')
         );
         const options = getFieldOptions(fieldName, []);
         // Respect the fieldType set in the Super Admin template.
@@ -519,8 +573,8 @@ const StudentRegistrationForm: React.FC<StudentRegistrationFormProps> = ({
                                     e.stopPropagation();
                                     setFormData(p => ({
                                         ...p,
-                                        [fieldName]: undefined,
-                                        [`${fieldName}Content`]: undefined
+                                        [fieldName]: null,
+                                        [`${fieldName}Content`]: null
                                     }));
                                     const input = document.getElementById(inputId) as HTMLInputElement;
                                     if (input) input.value = '';

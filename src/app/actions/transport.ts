@@ -135,9 +135,10 @@ export async function assignTransportToStudents(
     const db = readDb();
     if (!db.transportAllocations) db.transportAllocations = [];
 
-    // Get Session Start Month from School Settings (default to 3 for April if not set)
+    // Get Session Start Month from School Settings (convert 1-indexed to 0-indexed, default to 3 for April if not set)
     const school = db.schools?.find(s => s.id === schoolId);
-    const sessionStartMonth = school?.sessionStartMonth ?? 3;
+    const sessionStartMonthVal = school?.sessionStartMonth;
+    const sessionStartMonth = sessionStartMonthVal ? sessionStartMonthVal - 1 : 3;
     const currentMonth = new Date().getMonth();
     const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     
@@ -211,10 +212,51 @@ export async function updateTransportAllocation(
     const index = db.transportAllocations.findIndex(a => a.id === allocationId);
     if (index === -1) return { success: false, message: 'Allocation not found' };
 
+    const studentId = db.transportAllocations[index].studentId;
+    const student = db.students?.find(s => s.id === studentId);
+    const schoolId = student?.schoolId;
+
+    const school = db.schools?.find(s => s.id === schoolId);
+    const sessionStartMonthVal = school?.sessionStartMonth;
+    const sessionStartMonth = sessionStartMonthVal ? sessionStartMonthVal - 1 : 3;
+
+    const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const sessionOrderedMonths = [];
+    for (let i = 0; i < 12; i++) {
+        sessionOrderedMonths.push(allMonths[(sessionStartMonth + i) % 12]);
+    }
+
+    const finalStartDate = startDate || db.transportAllocations[index].effectiveFrom;
+    const finalEndDate = endDate || db.transportAllocations[index].effectiveUntil;
+
+    const startMonthIndex = finalStartDate ? new Date(finalStartDate).getMonth() : new Date().getMonth();
+    const endMonthIndex = finalEndDate ? new Date(finalEndDate).getMonth() : -1;
+
+    const startMonthName = allMonths[startMonthIndex];
+    const startIndexInSession = sessionOrderedMonths.indexOf(startMonthName);
+
+    let defaultActiveMonths: string[] = [];
+    if (startIndexInSession !== -1) {
+        if (endMonthIndex !== -1) {
+            const endMonthName = allMonths[endMonthIndex];
+            const endIndexInSession = sessionOrderedMonths.indexOf(endMonthName);
+            if (endIndexInSession !== -1 && endIndexInSession >= startIndexInSession) {
+                defaultActiveMonths = sessionOrderedMonths.slice(startIndexInSession, endIndexInSession + 1);
+            } else {
+                defaultActiveMonths = sessionOrderedMonths.slice(startIndexInSession);
+            }
+        } else {
+            defaultActiveMonths = sessionOrderedMonths.slice(startIndexInSession);
+        }
+    } else {
+        defaultActiveMonths = [...sessionOrderedMonths];
+    }
+
     db.transportAllocations[index].routeId = routeId;
     db.transportAllocations[index].stopId = stopId;
     db.transportAllocations[index].effectiveFrom = startDate ? new Date(startDate).toISOString() : db.transportAllocations[index].effectiveFrom;
     db.transportAllocations[index].effectiveUntil = endDate ? new Date(endDate).toISOString() : undefined;
+    db.transportAllocations[index].activeMonths = defaultActiveMonths;
 
     writeDb(db);
     revalidatePath('/school-admin/transport');
@@ -262,6 +304,7 @@ export interface StudentTransportFeeInfo {
     lateFineAmount?: number;
     lateFineType?: string;
     lateFineEffectiveDate?: string;
+    activeMonths?: string[];
 }
 
 export async function getStudentTransportInfo(studentId: string): Promise<StudentTransportFeeInfo | null> {
@@ -289,6 +332,7 @@ export async function getStudentTransportInfo(studentId: string): Promise<Studen
         lateFineAmount: route.lateFineAmount,
         lateFineType: route.lateFineType,
         lateFineEffectiveDate: route.lateFineEffectiveDate,
+        activeMonths: allocation.activeMonths,
     };
 }
 // --- TRANSPORT DRIVERS ---

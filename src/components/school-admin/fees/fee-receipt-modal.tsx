@@ -233,7 +233,8 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
             const monthShortName = monthInfo?.name || `M${index + 1}`;
 
             const allMonthTxns = allMonthTransactions[index] || [];
-            const currentTxnIds = new Set(currentTxns.map(t => t.id));
+            const currentTxnIds = new Set(currentTxns.map(t => t.id).filter(Boolean));
+            const currentInvoiceNo = currentTxns[0]?.invoiceNo;
 
             // --- TRANSACTION-DRIVEN RECEIPT ---
             // Only show fee rows that appear in the current receipt transactions
@@ -266,7 +267,11 @@ const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({ transactions, allTran
             });
 
             // Build past settled amounts per fee (transactions NOT in this receipt)
-            const pastTxns = allMonthTxns.filter(t => !currentTxnIds.has(t.id));
+            const pastTxns = allMonthTxns.filter(t => {
+                if (currentInvoiceNo && t.invoiceNo === currentInvoiceNo) return false;
+                if (t.id && currentTxnIds.has(t.id)) return false;
+                return true;
+            });
             const perFeePastSettled: Record<string, number> = {};
             pastTxns.forEach(t => {
                 const key = t.feeName || 'Unknown Fee';

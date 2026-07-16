@@ -905,7 +905,21 @@ export default function StudentsPage() {
                                                     <TableCell className="text-[13px] text-gray-600">{(student as any).aadhaarNo || '—'}</TableCell>
                                                     <TableCell className="text-[13px] text-gray-600">{(student as any).house || '—'}</TableCell>
                                                     <TableCell className="text-[13px] text-gray-600">{student.fatherName}</TableCell>
-                                                    <TableCell className="text-[13px] text-gray-600">{student.dob || '—'}</TableCell>
+                                                    <TableCell className="text-[13px] text-gray-600">
+                                                        {(() => {
+                                                            if (!student.dob) return '—';
+                                                            try {
+                                                                const d = new Date(student.dob);
+                                                                if (isNaN(d.getTime())) return student.dob;
+                                                                const day = String(d.getDate()).padStart(2, '0');
+                                                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                                                const year = d.getFullYear();
+                                                                return `${day}-${month}-${year}`;
+                                                            } catch {
+                                                                return student.dob;
+                                                            }
+                                                        })()}
+                                                    </TableCell>
                                                     <TableCell className="text-[13px] text-gray-600 capitalize">{student.gender || '—'}</TableCell>
                                                     <TableCell className="text-[13px] text-gray-600">{student.category || 'General'}</TableCell>
                                                     <TableCell className="text-[13px] text-gray-600 font-bold">{student.phone}</TableCell>

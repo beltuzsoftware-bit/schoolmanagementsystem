@@ -5,14 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Plus, Users, Download, Filter } from 'lucide-react';
 import { StaffList } from '@/components/staff/staff-list';
 import AdvancedStaffForm from '@/components/staff/advanced-staff-form';
+import { ImportStaffModal } from '@/components/staff/import-staff-modal';
+import StaffDetailsView from '@/components/staff/staff-details-view';
+import { getStaffProfiles, getAttendanceMaster } from '@/app/actions';
 import { toast } from 'sonner';
 
 export default function StaffPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [schoolId, setSchoolId] = useState<string>('');
     const [editingStaff, setEditingStaff] = useState<any>(null);
+    const [viewingStaff, setViewingStaff] = useState<any>(null);
     const [mounted, setMounted] = useState(false);
+    const [stats, setStats] = useState({ total: 0, present: 0, leave: 0 });
 
     useEffect(() => {
         setMounted(true);
@@ -24,6 +30,45 @@ export default function StaffPage() {
             }
         }
     }, []);
+
+    useEffect(() => {
+        if (!schoolId) return;
+        const loadStats = async () => {
+            try {
+                const [profiles, attendance] = await Promise.all([
+                    getStaffProfiles(schoolId),
+                    getAttendanceMaster()
+                ]);
+                const today = new Date().toISOString().split('T')[0];
+                const todayRecords = attendance[today] || [];
+                
+                const activeStaff = profiles.filter((p: any) => p.status !== 'Inactive');
+                const activeStaffIds = new Set(activeStaff.map((p: any) => p.id));
+                
+                let present = 0;
+                let leave = 0;
+                
+                todayRecords.forEach((r: any) => {
+                    if (activeStaffIds.has(r.staffId)) {
+                        if (r.status === 'PRESENT' || r.status === 'LATE') {
+                            present++;
+                        } else if (r.status === 'LEAVE') {
+                            leave++;
+                        }
+                    }
+                });
+                
+                setStats({
+                    total: activeStaff.length,
+                    present,
+                    leave
+                });
+            } catch (error) {
+                console.error('Failed to load real-time stats:', error);
+            }
+        };
+        loadStats();
+    }, [schoolId, refreshTrigger]);
 
     const handleSuccess = () => {
         setRefreshTrigger(prev => prev + 1);
@@ -54,8 +99,12 @@ export default function StaffPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" className="hidden sm:flex border-indigo-100 text-indigo-600 hover:bg-indigo-50">
-                        <Download className="mr-2 h-4 w-4" /> Export
+                    <Button 
+                        variant="outline" 
+                        className="border-indigo-100 text-indigo-600 hover:bg-indigo-50"
+                        onClick={() => setIsImportOpen(true)}
+                    >
+                        <Download className="mr-2 h-4 w-4" /> Import Staff
                     </Button>
                     <Button className="bg-[#1d7cf2] hover:bg-blue-600 shadow-lg shadow-blue-200" onClick={() => setIsAddOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" /> Add Staff Member
@@ -64,12 +113,12 @@ export default function StaffPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard icon={<Users className="text-indigo-600" />} label="Total Staff" value="24" color="bg-indigo-50" />
-                <StatCard icon={<Users className="text-emerald-600" />} label="Present Today" value="22" color="bg-emerald-50" />
-                <StatCard icon={<Users className="text-orange-600" />} label="On Leave" value="2" color="bg-orange-50" />
+                <StatCard icon={<Users className="text-indigo-600" />} label="Total Staff" value={String(stats.total)} color="bg-indigo-50" />
+                <StatCard icon={<Users className="text-emerald-600" />} label="Present Today" value={String(stats.present)} color="bg-emerald-50" />
+                <StatCard icon={<Users className="text-orange-600" />} label="On Leave" value={String(stats.leave)} color="bg-orange-50" />
             </div>
 
-            <StaffList schoolId={schoolId} refreshTrigger={refreshTrigger} onEdit={handleEdit} />
+            <StaffList schoolId={schoolId} refreshTrigger={refreshTrigger} onEdit={handleEdit} onView={(s) => setViewingStaff(s)} />
 
             <AdvancedStaffForm
                 open={isAddOpen}
@@ -78,6 +127,20 @@ export default function StaffPage() {
                 schoolId={schoolId}
                 initialData={editingStaff}
             />
+
+            <ImportStaffModal
+                open={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                onSuccess={handleSuccess}
+                schoolId={schoolId}
+            />
+
+            {viewingStaff && (
+                <StaffDetailsView
+                    staff={viewingStaff}
+                    onClose={() => setViewingStaff(null)}
+                />
+            )}
         </div>
     );
 }

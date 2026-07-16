@@ -12,7 +12,8 @@ export enum AttendanceStatus {
     PRESENT = 'PRESENT',
     ABSENT = 'ABSENT',
     HALF_DAY = 'HALF_DAY',
-    LATE = 'LATE'
+    LATE = 'LATE',
+    LEAVE = 'LEAVE'
 }
 
 export enum CalculationMode {
@@ -120,6 +121,7 @@ export interface StaffProfile {
         religion?: string;
         category?: string;
         maritalStatus?: string;
+        motherName?: string;
     };
     qualifications?: Qualification[];
     experience?: Experience;

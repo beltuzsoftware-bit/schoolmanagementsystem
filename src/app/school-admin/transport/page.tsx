@@ -188,7 +188,8 @@ export default function TransportPage() {
     const MONTHS_LIST = useMemo(() => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], []);
 
     const getSessionMonths = useCallback(() => {
-        const startMonth = schoolConfig?.sessionStartMonth ?? 3; // Default to April
+        const startMonthVal = schoolConfig?.sessionStartMonth;
+        const startMonth = startMonthVal ? startMonthVal - 1 : 3; // Convert 1-indexed to 0-indexed, default to 3 (April)
         const sessionMonths = [];
         for (let i = 0; i < 12; i++) {
             sessionMonths.push(MONTHS_LIST[(startMonth + i) % 12]);
