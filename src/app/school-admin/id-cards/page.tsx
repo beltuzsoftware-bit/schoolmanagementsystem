@@ -94,6 +94,7 @@ export default function IDCardsPage() {
 
 
     const schoolTemplates = templates.filter(t => t.schoolId === school?.id);
+    const availableGenerateTemplates = schoolTemplates.length > 0 ? schoolTemplates : templates;
     const globalTemplates = templates.filter(t => {
         const isGlobal = !t.schoolId || t.isGlobal;
         if (!isGlobal) return false;
@@ -111,19 +112,20 @@ export default function IDCardsPage() {
     const uniqueSections = Array.from(new Set(students.map(s => s.section || ''))).filter(Boolean).sort();
 
     useEffect(() => {
-        if (schoolTemplates.length > 0) {
-            if (!schoolTemplates.some(t => t.id === selectedTemplate)) {
-                setSelectedTemplate(schoolTemplates[0].id);
+        const available = schoolTemplates.length > 0 ? schoolTemplates : templates;
+        if (available.length > 0) {
+            if (!available.some(t => t.id === selectedTemplate)) {
+                setSelectedTemplate(available[0].id);
             }
-            if (!schoolTemplates.some(t => t.id === generateTemplate)) {
-                const defaultTmpl = schoolTemplates.find(t => t.isDefault);
+            if (!available.some(t => t.id === generateTemplate)) {
+                const defaultTmpl = available.find(t => t.isDefault) || available[0];
                 setGenerateTemplate(defaultTmpl ? defaultTmpl.id : "");
             }
         } else {
             setSelectedTemplate("");
             setGenerateTemplate("");
         }
-    }, [templates, school?.id, selectedTemplate, schoolTemplates, generateTemplate]);
+    }, [templates, school?.id, selectedTemplate, generateTemplate]);
 
     useEffect(() => {
         if (studentsToPrint.length > 0) {
@@ -189,11 +191,12 @@ export default function IDCardsPage() {
             }
             const t = await getIDCardTemplates(userSchoolId);
             setTemplates(t);
-            // Default to the first school-specific template if available
-            const sT = t.filter(tmpl => tmpl.schoolId === userSchoolId);
-            if (sT.length > 0) {
-                setSelectedTemplate(sT[0].id);
-                const defaultTmpl = sT.find(tmpl => tmpl.isDefault);
+            // Default to the first school-specific template if available, else first global template
+            const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
+            const available = sT.length > 0 ? sT : t;
+            if (available.length > 0) {
+                setSelectedTemplate(available[0].id);
+                const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
                 setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
             } else {
                 setSelectedTemplate("");
@@ -1095,8 +1098,8 @@ export default function IDCardsPage() {
                                         <SelectValue placeholder="Choose template" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {schoolTemplates.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                        {availableGenerateTemplates.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>{t.name}{!t.schoolId || t.isGlobal ? ' (Global)' : ''}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

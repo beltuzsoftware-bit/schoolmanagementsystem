@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { StudentAttendanceData, AttendanceStatus } from '@/types/attendance';
 import { generateNextId } from '@/lib/id-generator';
 import { EXTRACTED_ADMISSION_FIELDS } from '@/lib/admission-form-constants';
+import { DEFAULT_ID_CARD_TEMPLATES } from '@/lib/mock-data';
 import { calculateMonthFinancials, getStudentType } from '@/lib/fees-helper';
 import { 
     INITIAL_CLASS_SETUPS, INITIAL_SECTIONS, INITIAL_HOUSES, INITIAL_RELIGIONS, 
@@ -1003,7 +1004,7 @@ export async function updateReimbursements(staffId: string, reimbursements: any[
 
 export async function getIDCardTemplates(schoolId?: string) {
     const db = readDb();
-    const templates = db.idCardTemplates || [];
+    let templates = (db.idCardTemplates && db.idCardTemplates.length > 0) ? db.idCardTemplates : DEFAULT_ID_CARD_TEMPLATES;
     if (schoolId) {
         return templates.filter((t: any) => t.isGlobal === true || !t.schoolId || t.schoolId === schoolId);
     }

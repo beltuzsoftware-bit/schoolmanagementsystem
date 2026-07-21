@@ -220,7 +220,7 @@ export function readDb(): DatabaseSchema {
             modules: parsed.modules ?? INITIAL_DATA.modules,
             staffProfiles: parsed.staffProfiles ?? INITIAL_DATA.staffProfiles,
             attendance: parsed.attendance ?? INITIAL_DATA.attendance,
-            idCardTemplates: parsed.idCardTemplates ?? INITIAL_DATA.idCardTemplates,
+            idCardTemplates: (parsed.idCardTemplates && parsed.idCardTemplates.length > 0) ? parsed.idCardTemplates : INITIAL_DATA.idCardTemplates,
             students: parsed.students ?? INITIAL_DATA.students,
             staffFormTemplates: parsed.staffFormTemplates ?? INITIAL_DATA.staffFormTemplates,
             admissionFormTemplates: mergedAdmissionTemplates,

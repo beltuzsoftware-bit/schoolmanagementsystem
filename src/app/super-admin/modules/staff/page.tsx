@@ -128,7 +128,7 @@ export default function StaffModulePage() {
             getSchools()
         ]);
 
-        setIdTemplates(idT.filter(tmpl =>
+        setIdTemplates(idT.filter((tmpl: any) =>
             tmpl.id.includes('faculty') ||
             tmpl.name.toLowerCase().includes('staff') ||
             tmpl.id === 'tmpl_faculty_special'

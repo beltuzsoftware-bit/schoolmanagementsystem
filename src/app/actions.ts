@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { generateNextId } from '@/lib/id-generator';
 import { calculateMonthFinancials, getStudentType } from '@/lib/fees-helper';
 import { EXTRACTED_ADMISSION_FIELDS } from '@/lib/admission-form-constants';
+import { DEFAULT_ID_CARD_TEMPLATES } from '@/lib/mock-data';
 import { hashPassword, verifyPassword, createSession, SessionPayload } from '@/lib/auth-utils';
 import {
     INITIAL_CLASS_SETUPS,
@@ -2283,7 +2284,7 @@ export async function updateReimbursements(staffId: string, reimbursements: Reim
 
 export async function getIDCardTemplates(schoolId?: string) {
     const db = readDb();
-    const templates = db.idCardTemplates || [];
+    let templates = (db.idCardTemplates && db.idCardTemplates.length > 0) ? db.idCardTemplates : DEFAULT_ID_CARD_TEMPLATES;
     if (schoolId) {
         return templates.filter((t: any) => t.isGlobal === true || !t.schoolId || t.schoolId === schoolId);
     }

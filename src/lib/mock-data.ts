@@ -117,6 +117,7 @@ export const DEFAULT_ID_CARD_TEMPLATES: IDCardTemplate[] = [
         fontFamily: 'Alice',
         showPhoto: true,
         showLogo: true,
+        isGlobal: true,
         signatureText: 'Principal Signature',
         fields: [
             { id: 'f1', label: 'Name', key: 'name', bold: true },
@@ -138,6 +139,7 @@ export const DEFAULT_ID_CARD_TEMPLATES: IDCardTemplate[] = [
         backgroundImage: '/patterns/gold-overlay.png',
         showPhoto: true,
         showLogo: true,
+        isGlobal: true,
         signatureText: 'Authorized Signatory',
         fields: [
             { id: 'f1', label: 'Student Name', key: 'name', bold: true },
@@ -157,6 +159,7 @@ export const DEFAULT_ID_CARD_TEMPLATES: IDCardTemplate[] = [
         fontFamily: 'Inter',
         showPhoto: true,
         showLogo: true,
+        isGlobal: true,
         signatureText: 'Principal',
         fields: [
             { id: 'f1', label: '', key: 'name', bold: true }, // Name only
@@ -175,6 +178,7 @@ export const DEFAULT_ID_CARD_TEMPLATES: IDCardTemplate[] = [
         fontFamily: 'Alice',
         showPhoto: true,
         showLogo: true,
+        isGlobal: true,
         signatureText: 'Principal / Dean',
         fields: [
             { id: 'f1', label: 'Employee Name', key: 'name', bold: true },
