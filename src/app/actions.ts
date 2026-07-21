@@ -56,6 +56,8 @@ export async function upsertSchoolSubscription(schoolId: string, data: any) {
     return upsertSub(schoolId, data);
 }
 
+
+
 export async function createSubscriptionFromPackage(schoolId: string, pkg: any, overrides?: any) {
     return createSub(schoolId, pkg, overrides);
 }
@@ -285,33 +287,44 @@ export async function getSchools() {
 
 
 export async function getSchool(id: string) {
-    // Try UUID first, then the unique schoolId slug
-    let school = await prisma.school.findUnique({
-        where: { id },
-        include: { 
-            sessions: true,
-            _count: { select: { students: true } }
-        }
-    });
-
-    if (!school) {
-        school = await prisma.school.findUnique({
-            where: { schoolId: id },
+    try {
+        let school = await prisma.school.findUnique({
+            where: { id },
             include: { 
                 sessions: true,
                 _count: { select: { students: true } }
             }
         });
-    }
 
-    if (school) {
-        return {
-            ...school,
-            payrollConfig: (school.admissionFieldOverrides as any)?.__payrollConfig || null,
-            studentCount: school._count.students
-        };
+        if (!school) {
+            school = await prisma.school.findFirst({
+                where: {
+                    OR: [
+                        { schoolId: id },
+                        { schoolCode: id }
+                    ]
+                },
+                include: { 
+                    sessions: true,
+                    _count: { select: { students: true } }
+                }
+            });
+        }
+
+        if (school) {
+            return {
+                ...school,
+                payrollConfig: (school.admissionFieldOverrides as any)?.__payrollConfig || null,
+                studentCount: school._count?.students || 0
+            };
+        }
+        const db = readDb();
+        return (db.schools || []).find((s: any) => s.id === id || s.schoolCode === id || s.schoolId === id) || null;
+    } catch (error: any) {
+        console.warn('[HYBRID] Prisma getSchool failed:', error?.message || error);
+        const db = readDb();
+        return (db.schools || []).find((s: any) => s.id === id || s.schoolCode === id || s.schoolId === id) || null;
     }
-    return school;
 }
 
 const DEFAULT_ACCESSORY_FIELDS = [
