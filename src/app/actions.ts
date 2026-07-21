@@ -288,28 +288,19 @@ export async function getSchools() {
 
 export async function getSchool(id: string) {
     try {
-        let school = await prisma.school.findUnique({
-            where: { id },
+        let school = await prisma.school.findFirst({
+            where: {
+                OR: [
+                    { id: id },
+                    { schoolId: id },
+                    { code: id }
+                ]
+            },
             include: { 
                 sessions: true,
                 _count: { select: { students: true } }
             }
         });
-
-        if (!school) {
-            school = await prisma.school.findFirst({
-                where: {
-                    OR: [
-                        { schoolId: id },
-                        { schoolCode: id }
-                    ]
-                },
-                include: { 
-                    sessions: true,
-                    _count: { select: { students: true } }
-                }
-            });
-        }
 
         if (school) {
             return {
@@ -319,11 +310,11 @@ export async function getSchool(id: string) {
             };
         }
         const db = readDb();
-        return (db.schools || []).find((s: any) => s.id === id || s.schoolCode === id || s.schoolId === id) || null;
+        return (db.schools || []).find((s: any) => s.id === id || s.code === id || s.schoolId === id) || null;
     } catch (error: any) {
         console.warn('[HYBRID] Prisma getSchool failed:', error?.message || error);
         const db = readDb();
-        return (db.schools || []).find((s: any) => s.id === id || s.schoolCode === id || s.schoolId === id) || null;
+        return (db.schools || []).find((s: any) => s.id === id || s.code === id || s.schoolId === id) || null;
     }
 }
 
@@ -975,10 +966,25 @@ export async function getTemplateDemoStudent(schoolId: string, searchName?: stri
 
 
 export async function getStudents(schoolId: string) {
-    return prisma.student.findMany({
-        where: { schoolId },
-        orderBy: { createdAt: 'desc' }
-    });
+    try {
+        let students = await prisma.student.findMany({
+            where: {
+                OR: [
+                    { schoolId: schoolId },
+                    { school: { schoolId: schoolId } }
+                ]
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (students && students.length > 0) return students;
+
+        const db = readDb();
+        return (db.students || []).filter((s: any) => s.schoolId === schoolId || s.school?.schoolId === schoolId);
+    } catch (error: any) {
+        console.warn('[HYBRID] Prisma getStudents failed:', error?.message || error);
+        const db = readDb();
+        return (db.students || []).filter((s: any) => s.schoolId === schoolId || s.school?.schoolId === schoolId);
+    }
 }
 
 export async function getStudent(id: string) {
