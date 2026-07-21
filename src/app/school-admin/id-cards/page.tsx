@@ -19,7 +19,7 @@ import {
 import { IdCard, Printer, Search, User, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getIDCardTemplates, getSchools, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout } from "@/app/actions";
+import { getIDCardTemplates, getSchools, getSchool, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout } from "@/app/actions";
 import { IDCardTemplate, School, Student } from "@/types";
 import { IDCardPreview } from "@/components/id-cards/id-card-preview";
 import IDCardTemplateEditor from "@/components/super-admin/id-card-template-editor";
@@ -178,29 +178,35 @@ export default function IDCardsPage() {
             const storedUser = localStorage.getItem('kummi_user');
             let userSchoolId = "";
             if (storedUser) {
-                const user = JSON.parse(storedUser);
-                if (user.schoolId) {
-                    userSchoolId = user.schoolId;
-                    const schools = await getSchools();
-                    const s = schools.find((sch: School) => sch.id === user.schoolId);
-                    if (s) setSchool(s);
-
-                    const stds = await getStudents(user.schoolId);
-                    setStudents(stds);
+                try {
+                    const user = JSON.parse(storedUser);
+                    if (user.schoolId) userSchoolId = user.schoolId;
+                } catch (e) {
+                    console.error('Failed to parse user session:', e);
                 }
             }
-            const t = await getIDCardTemplates(userSchoolId);
-            setTemplates(t);
-            // Default to the first school-specific template if available, else first global template
-            const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
-            const available = sT.length > 0 ? sT : t;
-            if (available.length > 0) {
-                setSelectedTemplate(available[0].id);
-                const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
-                setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
-            } else {
-                setSelectedTemplate("");
-                setGenerateTemplate("");
+
+            // Execute all initial database queries in PARALLEL instead of serial await
+            const [s, stds, t] = await Promise.all([
+                userSchoolId ? getSchool(userSchoolId) : Promise.resolve(null),
+                userSchoolId ? getStudents(userSchoolId) : Promise.resolve([]),
+                getIDCardTemplates(userSchoolId)
+            ]);
+
+            if (s) setSchool(s as School);
+            if (stds) setStudents(stds as Student[]);
+            if (t) {
+                setTemplates(t);
+                const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
+                const available = sT.length > 0 ? sT : t;
+                if (available.length > 0) {
+                    setSelectedTemplate(available[0].id);
+                    const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
+                    setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
+                } else {
+                    setSelectedTemplate("");
+                    setGenerateTemplate("");
+                }
             }
         };
         fetchData();
