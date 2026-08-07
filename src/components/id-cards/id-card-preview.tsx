@@ -466,41 +466,50 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                                         {el.type === 'labelfield' && (() => {
                                              const lblW = el.labelWidth ?? 35;
                                              const valStr = resolveValue(student, el.fieldKey ?? '');
+                                             // Use table layout — works reliably in Chromium print unlike nested flex
                                              return (
-                                                 <div className={cn("w-full flex items-stretch", isFlow ? "h-auto" : "h-full")} style={{ minHeight: isFlow ? undefined : '100%' }}>
+                                                 <div style={{
+                                                     display: 'table',
+                                                     width: '100%',
+                                                     height: isFlow ? 'auto' : '100%',
+                                                     tableLayout: 'fixed',
+                                                     borderCollapse: 'collapse',
+                                                 }}>
                                                      {el.showLabel !== false && (
                                                          <div style={{
+                                                             display: 'table-cell',
                                                              width: `${lblW}%`,
-                                                             display: 'flex', alignItems: 'center',
-                                                             justifyContent: el.labelAlign === 'center' ? 'center' : el.labelAlign === 'right' ? 'flex-end' : 'flex-start',
+                                                             verticalAlign: 'middle',
                                                              fontSize: `${fontSize}px`,
                                                              fontWeight: el.fontWeight === 'bold' ? 700 : 400,
                                                              color: el.labelColor ?? el.color ?? '#1e293b',
                                                              paddingLeft: `${2 * fontScale}px`,
                                                              paddingRight: `${1 * fontScale}px`,
-                                                             flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden',
+                                                             whiteSpace: 'nowrap',
+                                                             overflow: 'hidden',
+                                                             textAlign: el.labelAlign === 'center' ? 'center' : el.labelAlign === 'right' ? 'right' : 'left',
                                                          }}>
                                                              {el.labelText ?? el.fieldLabel ?? el.fieldKey}
                                                          </div>
                                                      )}
                                                      <div style={{
-                                                         flex: 1, display: 'flex', alignItems: 'center',
+                                                         display: 'table-cell',
+                                                         verticalAlign: 'middle',
                                                          background: el.fieldBgColor && el.fieldBgColor !== 'transparent' ? el.fieldBgColor : 'transparent',
                                                          border: (el.borderWidth && el.borderWidth > 0) ? `${el.borderWidth * fontScale}px solid ${el.borderColor || '#cbd5e1'}` : 'none',
                                                          borderRadius: el.borderRadius ? `${el.borderRadius * fontScale}px` : `${1 * fontScale}px`,
+                                                         paddingLeft: `${3 * fontScale}px`,
+                                                         fontSize: `${fontSize}px`,
+                                                         fontWeight: el.fontWeight === 'bold' ? 700 : 400,
+                                                         fontStyle: el.fontStyle === 'italic' ? 'italic' : 'normal',
+                                                         textDecoration: el.underline ? 'underline' : 'none',
+                                                         color: el.color ?? '#1e293b',
+                                                         textAlign: el.valueAlign ?? el.align ?? 'left',
+                                                         whiteSpace: 'normal',
+                                                         wordBreak: 'break-word',
+                                                         wordWrap: 'break-word',
                                                      }}>
-                                                         <span style={{
-                                                             fontSize: `${fontSize}px`,
-                                                             fontWeight: el.fontWeight === 'bold' ? 700 : 400,
-                                                             fontStyle: el.fontStyle === 'italic' ? 'italic' : 'normal',
-                                                             textDecoration: el.underline ? 'underline' : 'none',
-                                                             color: el.color ?? '#1e293b',
-                                                             paddingLeft: `${3 * fontScale}px`,
-                                                             width: '100%',
-                                                             textAlign: el.valueAlign ?? el.align ?? 'left',
-                                                             whiteSpace: 'normal',
-                                                             wordBreak: 'break-word',
-                                                         }}>{valStr}</span>
+                                                         {valStr}
                                                      </div>
                                                  </div>
                                              );

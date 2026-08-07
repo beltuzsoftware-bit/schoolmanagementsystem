@@ -5,6 +5,7 @@ import type { IDCardCanvasElement, IDCardTemplate } from '@/types';
 import { getShapeStyle } from '@/lib/id-card-utils';
 import { STUDENT_FIELDS, PREVIEW_DATA } from '@/lib/canvas-engine';
 import QRCode from 'react-qr-code';
+import { toast } from 'sonner';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,27 @@ function ColorInputRow({
   );
 }
 
+const STYLE_PROPERTIES: (keyof IDCardCanvasElement)[] = [
+  'shape',
+  'borderColor',
+  'borderWidth',
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'underline',
+  'color',
+  'labelColor',
+  'align',
+  'labelAlign',
+  'valueAlign',
+  'bgColor',
+  'fieldBgColor',
+  'borderRadius',
+  'opacity',
+  'labelWidth',
+  'showLabel'
+];
+
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 export default function CanvasEditor({
@@ -101,6 +123,7 @@ export default function CanvasEditor({
   const [scale, setScale] = useState(1);
   const [previewMode, setPreviewMode] = useState(false);
   const [copiedElement, setCopiedElement] = useState<IDCardCanvasElement | null>(null);
+  const [copiedStyle, setCopiedStyle] = useState<Partial<IDCardCanvasElement> | null>(null);
 
   // Alignment & Snapping States
   const [alignTargetId, setAlignTargetId] = useState<string>('');
@@ -235,6 +258,26 @@ export default function CanvasEditor({
     setSelected(clone.id);
     setActiveTab('properties');
   }, [copiedElement, elements, commit]);
+
+  const copyStyle = useCallback(() => {
+    if (!selected) return;
+    const el = elements.find(e => e.id === selected);
+    if (!el) return;
+    const stylePatch: Partial<IDCardCanvasElement> = {};
+    STYLE_PROPERTIES.forEach(prop => {
+      if (el[prop] !== undefined) {
+        (stylePatch as any)[prop] = el[prop];
+      }
+    });
+    setCopiedStyle(stylePatch);
+    toast.success('Style copied to clipboard');
+  }, [selected, elements]);
+
+  const pasteStyle = useCallback(() => {
+    if (!selected || !copiedStyle) return;
+    update(selected, copiedStyle);
+    toast.success('Style applied to element');
+  }, [selected, copiedStyle, update]);
 
   const clearAll = useCallback(() => {
     if (!confirm('Delete all elements from the card?')) return;
@@ -398,11 +441,27 @@ export default function CanvasEditor({
       }
 
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-        if (e.key === 'y') { e.preventDefault(); redo(); return; }
-        if (e.key === 'c') { e.preventDefault(); copy(); return; }
-        if (e.key === 'v') { e.preventDefault(); paste(); return; }
-        if (e.key === 'd') { e.preventDefault(); dup(); return; }
+        if (e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+        if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+        if (e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          if (e.shiftKey || e.altKey) {
+            copyStyle();
+          } else {
+            copy();
+          }
+          return;
+        }
+        if (e.key.toLowerCase() === 'v') {
+          e.preventDefault();
+          if (e.shiftKey || e.altKey) {
+            pasteStyle();
+          } else {
+            paste();
+          }
+          return;
+        }
+        if (e.key.toLowerCase() === 'd') { e.preventDefault(); dup(); return; }
       }
 
       if (selected) {
@@ -435,7 +494,7 @@ export default function CanvasEditor({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selected, elements, del, dup, copy, paste, undo, redo, update]);
+  }, [selected, elements, del, dup, copy, paste, copyStyle, pasteStyle, undo, redo, update]);
 
   const [showGridLines, setShowGridLines] = useState(false);
 
@@ -1964,6 +2023,19 @@ export default function CanvasEditor({
                       }}
                     >
                       Paste Clone
+                    </button>
+                    <button onClick={copyStyle} style={{ ...actionBtnStyle, background: '#0891b2' }}>Copy Style</button>
+                    <button
+                      onClick={pasteStyle}
+                      disabled={!copiedStyle}
+                      style={{
+                        ...actionBtnStyle,
+                        background: '#0d9488',
+                        opacity: !copiedStyle ? 0.4 : 1,
+                        cursor: !copiedStyle ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Paste Style
                     </button>
                     <button onClick={del} style={{ ...actionBtnStyle, background: '#dc2626' }}>Delete</button>
                     <button onClick={clearAll} style={{ ...actionBtnStyle, background: '#7f1d1d' }}>Delete All</button>
