@@ -47,6 +47,7 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
             { title: 'Staff Members', href: '/school-admin/staff' },
             { title: 'Department', href: '/school-admin/staff/department' },
             { title: 'Designation', href: '/school-admin/staff/designation' },
+            { title: 'Role', href: '/school-admin/roles' },
         ]
     },
     m7: { title: 'Payroll', href: '/school-admin/payroll', icon: 'Wallet' },
