@@ -16,10 +16,10 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { IdCard, Printer, Search, User, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
+import { IdCard, Printer, Search, User, Users, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getIDCardTemplates, getSchools, getSchool, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout } from "@/app/actions";
+import { getIDCardTemplates, getSchools, getSchool, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout, getStaffProfiles, getUsers } from "@/app/actions";
 import { IDCardTemplate, School, Student } from "@/types";
 import { IDCardPreview } from "@/components/id-cards/id-card-preview";
 import IDCardTemplateEditor from "@/components/super-admin/id-card-template-editor";
@@ -46,16 +46,27 @@ export default function IDCardsPage() {
     const [activePageTab, setActivePageTab] = useState<'templates' | 'school-cards' | 'generate'>('generate');
 
     // Generate Tab States
+    const [generateMode, setGenerateMode] = useState<'student' | 'staff'>('student');
     const [selectedClass, setSelectedClass] = useState<string>("");
     const [selectedSection, setSelectedSection] = useState<string>("");
+    const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+    const [selectedDesignation, setSelectedDesignation] = useState<string>("");
     const [generateTemplate, setGenerateTemplate] = useState<string>("");
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [studentsToZip, setStudentsToZip] = useState<Student[]>([]);
+    const [validityDate, setValidityDate] = useState<string>("");
+
+    // Staff States
+    const [staffList, setStaffList] = useState<Student[]>([]); // mapped to Student shape
 
     // Rename Dialog States
     const [renamingTemplate, setRenamingTemplate] = useState<IDCardTemplate | null>(null);
     const [newName, setNewName] = useState("");
+
+    // Duplicate Dialog States
+    const [duplicatingTemplate, setDuplicatingTemplate] = useState<IDCardTemplate | null>(null);
+    const [duplicateName, setDuplicateName] = useState("");
 
     // AI Creator States
     const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
@@ -94,7 +105,10 @@ export default function IDCardsPage() {
 
 
     const schoolTemplates = templates.filter(t => t.schoolId === school?.id);
-    const availableGenerateTemplates = schoolTemplates.length > 0 ? schoolTemplates : templates;
+    const availableGenerateTemplates = (schoolTemplates.length > 0 ? schoolTemplates : templates).filter(t => {
+        const target = t.createdFor || 'student';
+        return target === generateMode;
+    });
     const globalTemplates = templates.filter(t => {
         const isGlobal = !t.schoolId || t.isGlobal;
         if (!isGlobal) return false;
@@ -187,10 +201,12 @@ export default function IDCardsPage() {
             }
 
             // Execute all initial database queries in PARALLEL instead of serial await
-            const [s, stds, t] = await Promise.all([
+            const [s, stds, t, staffProfiles, allUsers] = await Promise.all([
                 userSchoolId ? getSchool(userSchoolId) : Promise.resolve(null),
                 userSchoolId ? getStudents(userSchoolId) : Promise.resolve([]),
-                getIDCardTemplates(userSchoolId)
+                getIDCardTemplates(userSchoolId),
+                userSchoolId ? getStaffProfiles(userSchoolId) : Promise.resolve([]),
+                userSchoolId ? getUsers({ schoolId: userSchoolId }) : Promise.resolve([])
             ]);
 
             if (s) setSchool(s as School);
@@ -208,9 +224,58 @@ export default function IDCardsPage() {
                     setGenerateTemplate("");
                 }
             }
+
+            // Map staff profiles to Student shape so IDCardPreview works unchanged
+            if (staffProfiles && allUsers) {
+                const usersMap = new Map<string, any>();
+                (allUsers as any[]).forEach((u: any) => usersMap.set(u.id, u));
+                const mapped: Student[] = (staffProfiles as any[]).map((profile: any) => {
+                    const user = usersMap.get(profile.userId) || {};
+                    return {
+                        id: profile.id,
+                        schoolId: userSchoolId,
+                        name: user.name || profile.designation || 'Staff Member',
+                        firstName: (user.name || '').split(' ')[0] || '',
+                        lastName: (user.name || '').split(' ').slice(1).join(' ') || '',
+                        admissionNumber: profile.staffId || profile.id,
+                        rollNumber: '',
+                        className: profile.designation || '',
+                        section: profile.department || '',
+                        phone: profile.personalDetails?.phone || '',
+                        currentAddress: profile.personalDetails?.address || '',
+                        bloodGroup: profile.personalDetails?.bloodGroup || '',
+                        dob: profile.personalDetails?.dob || '',
+                        gender: profile.personalDetails?.gender || '',
+                        fatherName: profile.personalDetails?.fatherName || '',
+                        motherName: profile.personalDetails?.motherName || '',
+                        photo: user.photo || profile.photo || '',
+                        status: (profile.status === 'Active' ? 'Active' : 'Inactive') as any,
+                        currentSessionId: '',
+                        // Keep extra staff fields for display
+                        _staffDepartment: profile.department || '',
+                        _staffDesignation: profile.designation || '',
+                    } as Student & { _staffDepartment: string; _staffDesignation: string };
+                });
+                setStaffList(mapped);
+            }
         };
         fetchData();
     }, []);
+
+    useEffect(() => {
+        // Auto-select template matching active generateMode
+        const schoolTemplates = templates.filter(t => t.schoolId === school?.id);
+        const candidates = (schoolTemplates.length > 0 ? schoolTemplates : templates).filter(t => {
+            const target = t.createdFor || 'student';
+            return target === generateMode;
+        });
+        if (candidates.length > 0) {
+            const defaultTmpl = candidates.find(t => t.isDefault) || candidates[0];
+            setGenerateTemplate(defaultTmpl.id);
+        } else {
+            setGenerateTemplate("");
+        }
+    }, [generateMode, templates, school]);
 
     const handleSave = async (updatedTemplate: IDCardTemplate) => {
         try {
@@ -296,6 +361,38 @@ export default function IDCardsPage() {
         } catch (error: any) {
             console.error('[handleDelete] error:', error);
             toast.error(`Failed to delete: ${error?.message || String(error)}`);
+        }
+    };
+    const handleDuplicate = (tmpl: IDCardTemplate) => {
+        setDuplicatingTemplate(tmpl);
+        setDuplicateName(`${tmpl.name} Copy`);
+    };
+
+    const handleDuplicateSave = async () => {
+        if (!duplicatingTemplate) return;
+        const trimmed = duplicateName.trim();
+        if (!trimmed) {
+            toast.error("Template name cannot be empty");
+            return;
+        }
+        try {
+            const clone = {
+                ...duplicatingTemplate,
+                id: 'new',
+                name: trimmed,
+                isDefault: false,
+            };
+            const res = await addIDCardTemplate(clone);
+            if (res.success && res.template) {
+                setTemplates(prev => [...prev, res.template!]);
+                toast.success(`Duplicated to "${trimmed}" successfully!`);
+                setDuplicatingTemplate(null);
+            } else {
+                toast.error((res as any).error || 'Failed to duplicate template');
+            }
+        } catch (err: any) {
+            console.error('[handleDuplicateSave] error:', err);
+            toast.error('Failed to duplicate template');
         }
     };
 
@@ -566,6 +663,21 @@ export default function IDCardsPage() {
         return (s.status || 'Active') === 'Active' && matchesClass && matchesSection && matchesSearch;
     });
 
+    // Staff-specific filter values
+    const uniqueDepartments = Array.from(new Set(staffList.map(s => (s as any)._staffDepartment).filter(Boolean))).sort();
+    const uniqueDesignations = Array.from(new Set(staffList.map(s => (s as any)._staffDesignation).filter(Boolean))).sort();
+
+    const filteredGenerateStaff = staffList.filter(s => {
+        const matchesDept = !selectedDepartment || selectedDepartment === 'all' || (s as any)._staffDepartment === selectedDepartment;
+        const matchesDes = !selectedDesignation || selectedDesignation === 'all' || (s as any)._staffDesignation === selectedDesignation;
+        const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              s.admissionNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+        return (s.status || 'Active') === 'Active' && matchesDept && matchesDes && matchesSearch;
+    });
+
+    // The active list used for selection / print
+    const activeList = generateMode === 'staff' ? filteredGenerateStaff : filteredGenerateStudents;
+
     const handleToggleStudentSelection = (studentId: string) => {
         const next = new Set(selectedStudentIds);
         if (next.has(studentId)) {
@@ -577,17 +689,18 @@ export default function IDCardsPage() {
     };
 
     const handleToggleSelectAll = () => {
-        if (selectedStudentIds.size === filteredGenerateStudents.length) {
+        if (selectedStudentIds.size === activeList.length) {
             setSelectedStudentIds(new Set());
         } else {
-            setSelectedStudentIds(new Set(filteredGenerateStudents.map(s => s.id)));
+            setSelectedStudentIds(new Set(activeList.map(s => s.id)));
         }
     };
 
     const handlePrintSelected = () => {
-        const toPrint = students.filter(s => selectedStudentIds.has(s.id));
+        const sourceList = generateMode === 'staff' ? staffList : students;
+        const toPrint = sourceList.filter(s => selectedStudentIds.has(s.id));
         if (toPrint.length === 0) {
-            toast.error("Please select at least one student");
+            toast.error(`Please select at least one ${generateMode === 'staff' ? 'staff member' : 'student'}`);
             return;
         }
         if (!generateTemplate) {
@@ -598,8 +711,9 @@ export default function IDCardsPage() {
     };
 
     const handleDownloadZip = () => {
-        const toDownload = students.filter(s => selectedStudentIds.has(s.id));
-        if (toDownload.length === 0) { toast.error('Please select at least one student'); return; }
+        const sourceList = generateMode === 'staff' ? staffList : students;
+        const toDownload = sourceList.filter(s => selectedStudentIds.has(s.id));
+        if (toDownload.length === 0) { toast.error(`Please select at least one ${generateMode === 'staff' ? 'staff member' : 'student'}`); return; }
         if (!generateTemplate) { toast.error('Please select a template'); return; }
         setIsDownloadingZip(true);
         setStudentsToZip(toDownload); // triggers useEffect below
@@ -870,8 +984,17 @@ export default function IDCardsPage() {
                         <Card key={tmpl.id} className="border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-indigo-300 transition-all">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-base font-bold text-slate-800">{tmpl.name}</CardTitle>
-                                <CardDescription className="text-xs">
-                                    Layout: <span className="capitalize">{tmpl.layout}</span> | {tmpl.width}x{tmpl.height} mm
+                                <CardDescription className="text-xs space-y-1">
+                                    <div>Layout: <span className="capitalize">{tmpl.layout}</span> | {tmpl.width}x{tmpl.height} mm</div>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                                            tmpl.createdFor === 'staff'
+                                                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                        }`}>
+                                            For: {tmpl.createdFor === 'staff' ? 'Staff' : 'Student'}
+                                        </span>
+                                    </div>
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 flex flex-col items-center justify-between gap-6 p-4">
@@ -951,8 +1074,17 @@ export default function IDCardsPage() {
                                 <CardHeader className="pb-2 flex flex-row items-start justify-between space-y-0">
                                     <div>
                                         <CardTitle className="text-base font-bold text-slate-800">{tmpl.name}</CardTitle>
-                                        <CardDescription className="text-xs">
-                                            Layout: <span className="capitalize">{tmpl.layout}</span> | {tmpl.width}x{tmpl.height} mm
+                                        <CardDescription className="text-xs space-y-1">
+                                            <div>Layout: <span className="capitalize">{tmpl.layout}</span> | {tmpl.width}x{tmpl.height} mm</div>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                                                    tmpl.createdFor === 'staff'
+                                                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                        : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                                }`}>
+                                                    For: {tmpl.createdFor === 'staff' ? 'Staff' : 'Student'}
+                                                </span>
+                                            </div>
                                         </CardDescription>
                                     </div>
                                     <Button 
@@ -1013,6 +1145,22 @@ export default function IDCardsPage() {
                                         <Button 
                                             variant="outline"
                                             size="sm"
+                                            onClick={() => handleDuplicate(tmpl)}
+                                            className="gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
+                                        >
+                                            <Copy className="h-3.5 w-3.5" /> Duplicate
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDelete(tmpl.id)}
+                                            className="gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => {
                                                 setSelectedTemplate(tmpl.id);
                                                 // Prefer a student with a photo for a representative preview
@@ -1038,17 +1186,9 @@ export default function IDCardsPage() {
                                                 } as any;
                                                 setPreviewStudent(bestPreview);
                                             }}
-                                            className="gap-1.5 text-xs font-semibold"
+                                            className="col-span-2 gap-1.5 text-xs font-semibold"
                                         >
-                                            <IdCard className="h-3.5 w-3.5" /> Preview
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleDelete(tmpl.id)}
-                                            className="gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                                            <IdCard className="h-3.5 w-3.5" /> Preview ID Card
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -1064,38 +1204,103 @@ export default function IDCardsPage() {
                     <Card className="md:col-span-1 border-slate-200 shadow-sm">
                         <CardHeader>
                             <CardTitle className="text-lg">Filters</CardTitle>
-                            <CardDescription>Select Class, Template, & Students</CardDescription>
+                            <CardDescription>Select Template &amp; Members</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Class <span className="text-red-500">*</span></label>
-                                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Class" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Classes</SelectItem>
-                                        {uniqueClasses.map(c => (
-                                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+
+                            {/* Student / Staff Toggle */}
+                            <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                                <button
+                                    onClick={() => { setGenerateMode('student'); setSelectedStudentIds(new Set()); setSearchQuery(''); }}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all ${
+                                        generateMode === 'student'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-white text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <User className="h-3.5 w-3.5" /> Student
+                                </button>
+                                <button
+                                    onClick={() => { setGenerateMode('staff'); setSelectedStudentIds(new Set()); setSearchQuery(''); }}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all ${
+                                        generateMode === 'staff'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-white text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <Users className="h-3.5 w-3.5" /> Staff
+                                </button>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Section <span className="text-red-500">*</span></label>
-                                <Select value={selectedSection} onValueChange={setSelectedSection}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Section" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Sections</SelectItem>
-                                        {uniqueSections.map(s => (
-                                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {/* Student Filters */}
+                            {generateMode === 'student' && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Select Class <span className="text-red-500">*</span></label>
+                                        <Select value={selectedClass} onValueChange={setSelectedClass}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Class" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Classes</SelectItem>
+                                                {uniqueClasses.map(c => (
+                                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Select Section <span className="text-red-500">*</span></label>
+                                        <Select value={selectedSection} onValueChange={setSelectedSection}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Section" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Sections</SelectItem>
+                                                {uniqueSections.map(s => (
+                                                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Staff Filters */}
+                            {generateMode === 'staff' && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Department</label>
+                                        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All Departments" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Departments</SelectItem>
+                                                {uniqueDepartments.map(d => (
+                                                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Designation</label>
+                                        <Select value={selectedDesignation} onValueChange={setSelectedDesignation}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All Designations" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Designations</SelectItem>
+                                                {uniqueDesignations.map(d => (
+                                                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Select Template <span className="text-red-500">*</span></label>
@@ -1110,6 +1315,7 @@ export default function IDCardsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
+
 
                             <Button 
                                 className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
@@ -1133,19 +1339,23 @@ export default function IDCardsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Students Checkbox Table */}
+                    {/* Members Checkbox Table */}
                     <Card className="md:col-span-3 border-slate-200 shadow-sm">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <CardTitle className="text-lg">Student List</CardTitle>
-                                    <CardDescription>Select multiple students to generate ID Cards</CardDescription>
+                                    <CardTitle className="text-lg">{generateMode === 'staff' ? 'Staff List' : 'Student List'}</CardTitle>
+                                    <CardDescription>
+                                        {generateMode === 'staff'
+                                            ? 'Select staff members to generate ID Cards'
+                                            : 'Select multiple students to generate ID Cards'}
+                                    </CardDescription>
                                 </div>
-                                {selectedClass && selectedSection && generateTemplate && (
+                                {generateTemplate && (
                                     <div className="relative w-64">
                                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                                         <Input
-                                            placeholder="Search student..."
+                                            placeholder={`Search ${generateMode === 'staff' ? 'staff...' : 'student...'}`}
                                             className="pl-9"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -1155,11 +1365,17 @@ export default function IDCardsPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            {(!selectedClass || !selectedSection || !generateTemplate) ? (
+                            {(generateMode === 'student' && (!selectedClass || !selectedSection || !generateTemplate)) ? (
                                 <div className="py-12 text-center text-slate-500 border rounded-md border-dashed flex flex-col items-center">
                                     <IdCard className="h-12 w-12 mb-4 text-slate-300" />
                                     <h3 className="text-lg font-medium text-slate-700">Selection Required</h3>
                                     <p className="mt-1 max-w-sm">Please select a Class, Section, and Template from the left sidebar to view and generate ID cards.</p>
+                                </div>
+                            ) : (generateMode === 'staff' && !generateTemplate) ? (
+                                <div className="py-12 text-center text-slate-500 border rounded-md border-dashed flex flex-col items-center">
+                                    <IdCard className="h-12 w-12 mb-4 text-slate-300" />
+                                    <h3 className="text-lg font-medium text-slate-700">Select a Template</h3>
+                                    <p className="mt-1 max-w-sm">Please select a template from the left sidebar to view staff members.</p>
                                 </div>
                             ) : (
                                 <>
@@ -1169,38 +1385,54 @@ export default function IDCardsPage() {
                                         <tr>
                                             <th className="px-4 py-3 text-left w-12">
                                                 <Checkbox 
-                                                    checked={filteredGenerateStudents.length > 0 && selectedStudentIds.size === filteredGenerateStudents.length}
+                                                    checked={activeList.length > 0 && selectedStudentIds.size === activeList.length}
                                                     onCheckedChange={handleToggleSelectAll}
                                                 />
                                             </th>
-                                            <th className="px-4 py-3 text-left font-medium text-slate-600">ID</th>
+                                            <th className="px-4 py-3 text-left font-medium text-slate-600">
+                                                {generateMode === 'staff' ? 'Staff ID' : 'Adm. No'}
+                                            </th>
                                             <th className="px-4 py-3 text-left font-medium text-slate-600">Name</th>
-                                            <th className="px-4 py-3 text-left font-medium text-slate-600">Class</th>
-                                            <th className="px-4 py-3 text-left font-medium text-slate-600">Roll No</th>
+                                            <th className="px-4 py-3 text-left font-medium text-slate-600">
+                                                {generateMode === 'staff' ? 'Department' : 'Class'}
+                                            </th>
+                                            <th className="px-4 py-3 text-left font-medium text-slate-600">
+                                                {generateMode === 'staff' ? 'Designation' : 'Roll No'}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {filteredGenerateStudents.map(student => (
-                                            <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                                        {activeList.map(member => (
+                                            <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <Checkbox 
-                                                        checked={selectedStudentIds.has(student.id)}
-                                                        onCheckedChange={() => handleToggleStudentSelection(student.id)}
+                                                        checked={selectedStudentIds.has(member.id)}
+                                                        onCheckedChange={() => handleToggleStudentSelection(member.id)}
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3 font-mono text-xs">{student.admissionNumber}</td>
-                                                <td className="px-4 py-3 font-medium text-slate-900">{student.name}</td>
-                                                <td className="px-4 py-3 text-slate-600">{student.className}-{student.section}</td>
-                                                <td className="px-4 py-3 text-slate-600">{student.rollNumber}</td>
+                                                <td className="px-4 py-3 font-mono text-xs">{member.admissionNumber}</td>
+                                                <td className="px-4 py-3 font-medium text-slate-900">{member.name}</td>
+                                                <td className="px-4 py-3 text-slate-600">
+                                                    {generateMode === 'staff'
+                                                        ? (member as any)._staffDepartment || '—'
+                                                        : `${member.className}-${member.section}`}
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600">
+                                                    {generateMode === 'staff'
+                                                        ? (member as any)._staffDesignation || '—'
+                                                        : member.rollNumber}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
-                            {filteredGenerateStudents.length === 0 && (
+                            {activeList.length === 0 && (
                                 <div className="py-12 text-center">
                                     <User className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                                    <p className="text-slate-500 italic">No students found matching your filters</p>
+                                    <p className="text-slate-500 italic">
+                                        No {generateMode === 'staff' ? 'staff members' : 'students'} found matching your filters
+                                    </p>
                                 </div>
                             )}
                             </>
@@ -1240,6 +1472,54 @@ export default function IDCardsPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* Duplicate Template Dialog */}
+            <Dialog open={!!duplicatingTemplate} onOpenChange={(open) => !open && setDuplicatingTemplate(null)}>
+                <DialogContent className="sm:max-w-[425px] rounded-3xl border-emerald-100/30 shadow-2xl p-0 overflow-hidden bg-[#eafaf1]">
+                    {/* Color top header bar (emerald-to-teal) */}
+                    <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-green-400 h-2 w-full" />
+                    
+                    <div className="p-6 space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-100/80 flex items-center justify-center text-emerald-700 shrink-0 shadow-inner">
+                                <Copy className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-black text-emerald-950 tracking-tight">Duplicate Template</DialogTitle>
+                                <DialogDescription className="text-xs text-emerald-700/70 font-medium mt-0.5">
+                                    Create a styled duplicate of your design
+                                </DialogDescription>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-wider text-emerald-800/80">Template Name</label>
+                            <Input 
+                                value={duplicateName} 
+                                onChange={(e) => setDuplicateName(e.target.value)} 
+                                placeholder="E.g. Staff Card Template Copy"
+                                className="rounded-xl border-emerald-200/60 focus-visible:ring-emerald-500 h-11 text-slate-800 bg-white/80"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setDuplicatingTemplate(null)} 
+                                className="rounded-xl hover:bg-emerald-50/50 font-bold border-emerald-200/50 text-emerald-800 h-10 px-4 bg-white/55"
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl shadow-md hover:shadow-lg transition-all h-10 px-5"
+                                onClick={handleDuplicateSave}
+                            >
+                                Duplicate
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* ID Card Preview Dialog */}
             <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>
                 <DialogContent className="sm:max-w-[650px] w-full">
@@ -1257,6 +1537,7 @@ export default function IDCardsPage() {
                                 template={templates.find(t => t.id === selectedTemplate) || templates[0]}
                                 school={school}
                                 scale={6.5}
+                                validityDate={validityDate}
                             />
                         )}
                     </div>
@@ -1490,6 +1771,7 @@ export default function IDCardsPage() {
                                 template={tpl}
                                 school={school}
                                 scale={4}
+                                validityDate={validityDate}
                             />
                         </div>
                     );
@@ -1517,6 +1799,7 @@ export default function IDCardsPage() {
                                 template={tpl}
                                 school={school}
                                 scale={4}
+                                validityDate={validityDate}
                             />
                         </div>
                     );

@@ -1015,6 +1015,10 @@ export async function addIDCardTemplate(template: IDCardTemplate) {
     const db = readDb();
     if (!db.idCardTemplates) db.idCardTemplates = [];
 
+    // Normalize dimensions if they are entered/analyzed in 10x millimeter scale (e.g. 540x860 -> 54x86)
+    if (template.width && template.width > 200) template.width = Math.round(template.width / 10);
+    if (template.height && template.height > 200) template.height = Math.round(template.height / 10);
+
     if (!template.id || template.id === 'new') {
         template.id = `tmpl_${Date.now()}`;
     }
@@ -1037,6 +1041,10 @@ export async function addIDCardTemplate(template: IDCardTemplate) {
 export async function updateIDCardTemplate(updatedTemplate: IDCardTemplate) {
     const db = readDb();
     if (!db.idCardTemplates) return { success: false, error: 'No templates found' };
+
+    // Normalize dimensions if they are entered/analyzed in 10x millimeter scale (e.g. 540x860 -> 54x86)
+    if (updatedTemplate.width && updatedTemplate.width > 200) updatedTemplate.width = Math.round(updatedTemplate.width / 10);
+    if (updatedTemplate.height && updatedTemplate.height > 200) updatedTemplate.height = Math.round(updatedTemplate.height / 10);
 
     const index = db.idCardTemplates.findIndex((t: any) => t.id === updatedTemplate.id);
     if (index === -1) return { success: false, error: 'Template not found' };

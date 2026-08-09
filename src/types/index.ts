@@ -290,6 +290,7 @@ export interface IDCardTemplate {
     isGlobal?: boolean;
     clonedFromId?: string;
     isDefault?: boolean;
+    createdFor?: 'student' | 'staff';
 
     // Styles
     primaryColor: string;

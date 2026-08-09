@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { IDCardCanvasElement, IDCardTemplate } from '@/types';
 import { getShapeStyle } from '@/lib/id-card-utils';
-import { STUDENT_FIELDS, PREVIEW_DATA } from '@/lib/canvas-engine';
+import { STUDENT_FIELDS, PREVIEW_DATA, STAFF_FIELDS, STAFF_PREVIEW_DATA } from '@/lib/canvas-engine';
 import QRCode from 'react-qr-code';
 import { toast } from 'sonner';
 
@@ -681,7 +681,7 @@ export default function CanvasEditor({
   const renderElement = (el: IDCardCanvasElement) => {
     const isSelected = el.id === selected && !previewMode;
     const isHovered = el.id === hoveredId && !previewMode;
-    const pv = PREVIEW_DATA;
+    const pv = template.createdFor === 'staff' ? STAFF_PREVIEW_DATA : PREVIEW_DATA;
     const shapeStyle = el.type === 'photo' ? getShapeStyle(el.shape) : {};
 
     const baseStyle: React.CSSProperties = {
@@ -1330,7 +1330,7 @@ export default function CanvasEditor({
                   onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
                   onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
                 >
-                  📷 Add Student Photo Box
+                  📷 Add ${template.createdFor === 'staff' ? 'Staff' : 'Student'} Photo Box
                 </button>
                 <button
                   onClick={addSignature}
@@ -1354,16 +1354,16 @@ export default function CanvasEditor({
                   onMouseEnter={e => e.currentTarget.style.background = '#059669'}
                   onMouseLeave={e => e.currentTarget.style.background = '#10b981'}
                 >
-                  🔳 Add Student QR Code
+                  🔳 Add ${template.createdFor === 'staff' ? 'Staff' : 'Student'} QR Code
                 </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Student Data Fields
+                  {template.createdFor === 'staff' ? 'Staff' : 'Student'} Data Fields
                 </span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 'calc(100vh - 420px)', overflowY: 'auto', paddingRight: 4 }}>
-                  {STUDENT_FIELDS.map(f => (
+                  {(template.createdFor === 'staff' ? STAFF_FIELDS : STUDENT_FIELDS).map(f => (
                     <div
                       key={f.key}
                       style={{

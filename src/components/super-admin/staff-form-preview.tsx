@@ -91,7 +91,7 @@ function getSectionIcon(section: string) {
 
 function DynamicField({ field }: { field: StaffFormConfig }) {
     const label = (
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-1 mb-1.5">
+        <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase flex items-center gap-1.5 ml-1 mb-1.5">
             {field.label} {field.required && <span className="text-indigo-500">*</span>}
             {field.id.startsWith('custom_') && <Badge className="h-3 px-1 text-[6px] bg-purple-50 text-purple-600 border-purple-200">CUSTOM</Badge>}
         </label>
@@ -143,9 +143,9 @@ function DynamicField({ field }: { field: StaffFormConfig }) {
 // Helper Components Mirroring AdvancedStaffForm
 function SectionHeader({ icon, title }: { icon: React.ReactNode, title: string }) {
     return (
-        <div className="flex items-center gap-2 mb-6 text-slate-800 border-b border-slate-100 pb-2">
-            <span className="text-indigo-600">{icon}</span>
-            <h3 className="text-sm font-bold uppercase tracking-wider">{title}</h3>
+        <div className="flex items-center gap-3 mb-6 pb-2.5 border-b border-slate-100">
+            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/60 shadow-2xs flex items-center justify-center">{icon}</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">{title}</h3>
         </div>
     );
 }
@@ -153,13 +153,13 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode, title: string }
 function InputField({ label, type = "text", value, disabled, required, placeholder }: any) {
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-600 uppercase">{label}</label>
+            <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase leading-none">{label}</label>
             <input
                 type={type}
                 value={value || ''}
                 disabled={disabled}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm bg-slate-50 text-slate-500 cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none text-sm bg-slate-50/70 text-slate-500 cursor-not-allowed font-medium"
             />
             {required && <span className="text-[10px] text-indigo-500 font-bold ml-1">REQUIRED FIELD</span>}
         </div>
@@ -169,10 +169,10 @@ function InputField({ label, type = "text", value, disabled, required, placehold
 function SelectField({ label, options, value, disabled, required }: any) {
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-600 uppercase">{label}</label>
+            <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase leading-none">{label}</label>
             <select
                 disabled={disabled}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm bg-slate-50 text-slate-400 cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none text-sm bg-slate-50/70 text-slate-400 cursor-not-allowed font-medium"
             >
                 <option value="">{value || 'Select Option'}</option>
             </select>

@@ -11,6 +11,7 @@ interface IDCardPreviewProps {
     template: IDCardTemplate;
     school: School | null;
     scale?: number;
+    validityDate?: string;
 }
 
 /** Maps a template field key to the actual value on the student record. */
@@ -21,6 +22,17 @@ function resolveValue(student: Student, key: string): string {
         return student.phone || student.fatherPhone || "N/A";
     if (key === "className")
         return [student.className, student.section].filter(Boolean).join(" - ") || "N/A";
+    
+    // Staff-specific key resolving
+    if (key === "designation")
+        return (student as any)._staffDesignation || (student as any).designation || student.className || "N/A";
+    if (key === "department")
+        return (student as any)._staffDepartment || (student as any).department || student.section || "N/A";
+    if (key === "staffId")
+        return (student as any).staffId || student.admissionNumber || "N/A";
+    if (key === "joiningDate")
+        return (student as any).joiningDate || "N/A";
+
     return (student as any)[key] || "N/A";
 }
 
@@ -28,10 +40,15 @@ function cardRadiusCss(r?: string) {
     return r === "none" ? "0px" : r === "sm" ? "4px" : r === "lg" ? "16px" : r === "full" ? "24px" : "8px"; // md default
 }
 
-export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPreviewProps) {
+export function IDCardPreview({ student: originalStudent, template, school, scale = 4, validityDate }: IDCardPreviewProps) {
+    const student = validityDate ? { ...originalStudent, validityDate } : originalStudent;
+    const bodyText = template.textColor || "#1e293b";
+
+    const widthVal = template.width > 200 ? Math.round(template.width / 10) : template.width;
+    const heightVal = template.height > 200 ? Math.round(template.height / 10) : template.height;
+
     const isVertical = template.layout === "vertical";
     const isDragDrop = template.layoutMode === "drag-drop";
-    const bodyText = template.textColor || "#1e293b";
     const headerText = template.headerTextColor || "#ffffff";
 
     const pp = template.photoPosition ?? { x: 35, y: 15, width: 28, height: 26 };
@@ -59,7 +76,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
 
         // Use the actual body container height so positions are calculated
         // in the correct coordinate space (body div excludes the ~22% header).
-        const bodyHeightPx = container.offsetHeight || (template.height * scale * 0.78);
+        const bodyHeightPx = container.offsetHeight || (heightVal * scale * 0.78);
 
         // Fixed-layout elements that should NEVER be displaced by the push-down algorithm.
         // Photo is special — it won't be pushed by text but WILL align its top with adjacent row elements.
@@ -166,8 +183,8 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
         <div
             className="relative overflow-hidden border flex flex-col print-card"
             style={{
-                width: `${template.width * scale}px`,
-                height: `${template.height * scale}px`,
+                width: `${widthVal * scale}px`,
+                height: `${heightVal * scale}px`,
                 backgroundColor: (template.backgroundImage && (template.backgroundImage.startsWith('#') || template.backgroundImage.match(/^[a-zA-Z]+$/))) 
                     ? template.backgroundImage 
                     : template.secondaryColor,
@@ -519,6 +536,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                             };
 
                             return template.canvasElements.map(el => {
+                                if (el.fieldKey === 'validityDate' && !validityDate) return null;
                                 const isFlow = isTextFlowElement(el);
                                 const FIXED_TYPES = new Set(['photo', 'qrcode', 'signature', 'shape', 'line']);
                                 const isFixedEl = FIXED_TYPES.has(el.type);
@@ -579,6 +597,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
 
                         {/* Fields */}
                         {template.fields.map(field => {
+                            if (field.key === 'validityDate' && !validityDate) return null;
                             const val = resolveValue(student, field.key);
                             return (
                                 <div key={field.id}
@@ -648,6 +667,7 @@ export function IDCardPreview({ student, template, school, scale = 4 }: IDCardPr
                         {/* Detail fields */}
                         <div className={cn("flex flex-col flex-1", isVertical ? "items-center text-center mt-2" : "text-left")}>
                             {template.fields.map(field => {
+                                if (field.key === 'validityDate' && !validityDate) return null;
                                 const val = resolveValue(student, field.key);
                                 return (
                                     <div key={field.id} className="mb-1">

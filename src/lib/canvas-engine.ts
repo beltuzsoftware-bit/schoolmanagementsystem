@@ -97,6 +97,7 @@ export const STUDENT_FIELDS = [
   { key: 'motherName',      label: "Mother's Name" },
   { key: 'gender',          label: 'Gender' },
   { key: 'house',           label: 'House' },
+  { key: 'validityDate',    label: 'Validity' },
 ];
 
 export const PREVIEW_DATA: Record<string, string> = {
@@ -112,6 +113,39 @@ export const PREVIEW_DATA: Record<string, string> = {
   motherName:      'Sunita Sharma',
   gender:          'Male',
   house:           'Tagore House',
+  validityDate:    '31-03-2027',
+};
+
+export const STAFF_FIELDS = [
+  { key: 'name',            label: 'Staff Name' },
+  { key: 'designation',     label: 'Designation' },
+  { key: 'department',      label: 'Department' },
+  { key: 'staffId',         label: 'Employee ID' },
+  { key: 'dob',             label: 'Date of Birth' },
+  { key: 'bloodGroup',      label: 'Blood Group' },
+  { key: 'phone',           label: 'Phone' },
+  { key: 'currentAddress',  label: 'Address' },
+  { key: 'fatherName',      label: "Father's Name" },
+  { key: 'motherName',      label: "Mother's Name" },
+  { key: 'gender',          label: 'Gender' },
+  { key: 'joiningDate',     label: 'Joining Date' },
+  { key: 'validityDate',    label: 'Validity' },
+];
+
+export const STAFF_PREVIEW_DATA: Record<string, string> = {
+  name:            'Abdur Rahaman Mondal',
+  designation:     'Accountant',
+  department:      'Academic',
+  staffId:         'HMS02190024',
+  dob:             '18-06-1985',
+  bloodGroup:      'O+',
+  phone:           '+91 98765 43210',
+  currentAddress:  'North 24 Parganas, West Bengal, India',
+  fatherName:      'Abdul Jalil Mondal',
+  motherName:      'Aliya Mondal',
+  gender:          'Male',
+  joiningDate:     '01-11-2018',
+  validityDate:    '31-03-2027',
 };
 
 export function getDefaultCanvasElements(layout: 'vertical' | 'horizontal'): any[] {

@@ -39,7 +39,16 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
             { title: 'Subjects', href: '/school-admin/academics/subjects' },
         ]
     },
-    m6: { title: 'Staff Management', href: '/school-admin/staff', icon: 'Briefcase' },
+    m6: {
+        title: 'Staff Management',
+        href: '/school-admin/staff',
+        icon: 'Briefcase',
+        children: [
+            { title: 'Staff Members', href: '/school-admin/staff' },
+            { title: 'Department', href: '/school-admin/staff/department' },
+            { title: 'Designation', href: '/school-admin/staff/designation' },
+        ]
+    },
     m7: { title: 'Payroll', href: '/school-admin/payroll', icon: 'Wallet' },
     m8: { title: 'ID Cards', href: '/school-admin/id-cards', icon: 'IdCard' },
     m9: { title: 'QR Fee Collection', href: '/school-admin/qr-fees', icon: 'QrCode' },

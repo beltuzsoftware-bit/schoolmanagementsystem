@@ -37,6 +37,24 @@ const PREVIEW_STUDENT = {
     motherName: 'Sunita Sharma',
     gender: 'Male',
     house: 'Tagore House',
+    validityDate: '31-03-2027',
+};
+
+const PREVIEW_STAFF = {
+    name: 'Abdur Rahaman Mondal',
+    designation: 'Accountant',
+    department: 'Academic',
+    staffId: 'HMS02190024',
+    dob: '18-06-1985',
+    bloodGroup: 'O+',
+    phone: '+91 98765 43210',
+    currentAddress: 'North 24 Parganas, West Bengal, India',
+    photo: 'https://github.com/shadcn.png',
+    fatherName: 'Abdul Jalil Mondal',
+    motherName: 'Aliya Mondal',
+    gender: 'Male',
+    joiningDate: '01-11-2018',
+    validityDate: '31-03-2027',
 };
 
 const PRESET_GRADIENTS = [
@@ -48,9 +66,14 @@ const PRESET_GRADIENTS = [
     { name: 'Dark Midnight', value: 'linear-gradient(135deg,#1e293b 0%,#334155 100%)' },
 ];
 
-const ALL_FIELD_KEYS = [
+const STUDENT_FIELD_KEYS = [
     'name','className','rollNumber','admissionNumber','dob','bloodGroup',
-    'currentAddress','phone','fatherName','motherName','gender','house',
+    'currentAddress','phone','fatherName','motherName','gender','house','validityDate',
+];
+
+const STAFF_FIELD_KEYS = [
+    'name','designation','department','staffId','dob','bloodGroup',
+    'currentAddress','phone','fatherName','motherName','gender','joiningDate','validityDate',
 ];
 
 // ---------- Inline shape picker mini-component ----------
@@ -218,9 +241,10 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
     };
 
     const getVal = (key: string) => {
-        if (key === 'address' || key === 'currentAddress') return PREVIEW_STUDENT.currentAddress;
-        if (key === 'emergencyContact' || key === 'phone') return PREVIEW_STUDENT.phone;
-        return (PREVIEW_STUDENT as any)[key] ?? 'N/A';
+        const previewSource = template.createdFor === 'staff' ? PREVIEW_STAFF : PREVIEW_STUDENT;
+        if (key === 'address' || key === 'currentAddress') return previewSource.currentAddress;
+        if (key === 'emergencyContact' || key === 'phone') return previewSource.phone;
+        return (previewSource as any)[key] ?? 'N/A';
     };
 
     // ---------- render ----------
@@ -244,6 +268,36 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
             <div className={isDragDrop
                 ? 'w-full lg:w-96 shrink-0 flex flex-col gap-4 overflow-y-auto pb-10 pr-1'
                 : 'lg:col-span-5 flex flex-col gap-4 overflow-y-auto pb-10 pr-1'}>
+
+                {/* Target Type Selector */}
+                <div className="p-4 border rounded-2xl bg-slate-50/50 space-y-2 border-slate-200">
+                    <Label className="font-black text-xs uppercase tracking-widest text-slate-500">ID Card Template Created For</Label>
+                    <Select value={template.createdFor || 'student'} onValueChange={val => {
+                        // Update createdFor, clear current fields and add a default Name field
+                        setTemplate(prev => ({
+                            ...prev,
+                            createdFor: val as 'student' | 'staff',
+                            fields: [{
+                                id: `f_${Date.now()}`,
+                                label: 'Name',
+                                key: 'name',
+                                bold: true,
+                                x: prev.layout === 'vertical' ? 10 : 36,
+                                y: prev.layout === 'vertical' ? 45 : 18,
+                                fontSize: 14,
+                                fontColor: prev.textColor,
+                            }]
+                        }));
+                    }}>
+                        <SelectTrigger className="rounded-xl bg-white border-slate-200 h-10">
+                            <SelectValue placeholder="Select target user type" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                            <SelectItem value="student">Student ID Cards</SelectItem>
+                            <SelectItem value="staff">Staff / Employee ID Cards</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
                 {/* Tabs */}
                 <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl w-fit border">
@@ -427,15 +481,15 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                         <div className="space-y-4 animate-in fade-in slide-in-from-left-4">
                             <ToggleRow label="Show School Header & Logo" sub="Turn off if already pre-printed in background"
                                 checked={template.showSchoolHeader !== false} onChange={c => set('showSchoolHeader', c)} />
-                            <ToggleRow label="Show Student Photo" checked={template.showPhoto} onChange={c => set('showPhoto', c)} />
+                            <ToggleRow label={`Show ${template.createdFor === 'staff' ? 'Staff' : 'Student'} Photo`} checked={template.showPhoto} onChange={c => set('showPhoto', c)} />
                             <ToggleRow label="Show Logo Graphic" checked={template.showLogo} onChange={c => set('showLogo', c)} />
-                            <ToggleRow label="Show Student QR Code" sub="Unique QR code encoding student admission/ID"
+                            <ToggleRow label={`Show ${template.createdFor === 'staff' ? 'Staff' : 'Student'} QR Code`} sub={`Unique QR code encoding ${template.createdFor === 'staff' ? 'staff ID' : 'student admission ID'}`}
                                 checked={template.showQRCode ?? false} onChange={c => set('showQRCode', c)} />
 
                             {/* Field selector grid */}
-                            <Field label="Active Student Fields">
+                            <Field label={`Active ${template.createdFor === 'staff' ? 'Staff' : 'Student'} Fields`}>
                                 <div className="grid grid-cols-3 gap-1.5">
-                                    {ALL_FIELD_KEYS.map(key => {
+                                    {(template.createdFor === 'staff' ? STAFF_FIELD_KEYS : STUDENT_FIELD_KEYS).map(key => {
                                         const selected = template.fields.some(f => f.key === key);
                                         return (
                                             <button key={key} type="button" onClick={() => toggleField(key)}
@@ -590,7 +644,7 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                                             cursor: 'move',
                                             ...shapeStyle,
                                         }}>
-                                        <img src={PREVIEW_STUDENT.photo} alt="Student" className="w-full h-full object-cover pointer-events-none" />
+                                        <img src={template.createdFor === 'staff' ? PREVIEW_STAFF.photo : PREVIEW_STUDENT.photo} alt={template.createdFor === 'staff' ? 'Staff' : 'Student'} className="w-full h-full object-cover pointer-events-none" />
 
                                         {/* Move icon overlay */}
                                         <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-none transition-all">
@@ -668,7 +722,7 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                                             border: `${pp.borderWidth ?? 2}px solid ${pp.borderColor ?? '#6366f1'}`,
                                             ...shapeStyle,
                                         }}>
-                                        <img src={PREVIEW_STUDENT.photo} alt="Student" className="w-full h-full object-cover" />
+                                        <img src={template.createdFor === 'staff' ? PREVIEW_STAFF.photo : PREVIEW_STUDENT.photo} alt={template.createdFor === 'staff' ? 'Staff' : 'Student'} className="w-full h-full object-cover" />
                                     </div>
                                 );
                             })()}
@@ -700,14 +754,14 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                                     {template.showQRCode && (
                                         <div className="bg-white p-0.5 rounded border border-slate-200">
                                             <QRCode
-                                                value="ADM-2024-001"
+                                                value={template.createdFor === 'staff' ? PREVIEW_STAFF.staffId : PREVIEW_STUDENT.admissionNumber}
                                                 size={28}
                                                 style={{ height: 'auto', width: '28px' }}
                                                 viewBox="0 0 256 256"
                                             />
                                         </div>
                                     )}
-                                    <span className="text-[10px] font-bold" style={{ color: template.primaryColor }}>ADM-2024-001</span>
+                                    <span className="text-[10px] font-bold" style={{ color: template.primaryColor }}>{template.createdFor === 'staff' ? PREVIEW_STAFF.staffId : PREVIEW_STUDENT.admissionNumber}</span>
                                 </div>
                             </div>
                         </div>

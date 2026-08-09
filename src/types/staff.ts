@@ -127,6 +127,7 @@ export interface StaffProfile {
     experience?: Experience;
     bankDetails?: BankDetails;
     photo?: string;
+    qrCode?: string;
     certificate?: string;
     kycDocument?: string;
     status: 'Active' | 'Inactive' | 'On Leave';

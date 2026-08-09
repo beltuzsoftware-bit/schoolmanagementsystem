@@ -54,6 +54,8 @@ interface DatabaseSchema {
         disabledFeeTemplates: string[];
     };
     schoolSubscriptions: SchoolSubscription[];
+    staffDepartments: { id: string; schoolId: string; name: string }[];
+    staffDesignations: { id: string; schoolId: string; name: string }[];
     globalStudentDefaults: {
         classes: ClassSetup[];
         sections: string[];
@@ -111,6 +113,8 @@ const INITIAL_DATA: DatabaseSchema = {
         disabledFeeTemplates: [],
     },
     schoolSubscriptions: [],
+    staffDepartments: [],
+    staffDesignations: [],
     globalStudentDefaults: {
         classes: INITIAL_CLASS_SETUPS,
         sections: INITIAL_SECTIONS,
@@ -138,10 +142,23 @@ function ensureDb() {
     }
 }
 
+let _cachedDb: DatabaseSchema | null = null;
+let _cachedMtime: number = 0;
+
+export function invalidateDbCache() {
+    _cachedDb = null;
+    _cachedMtime = 0;
+}
+
 // Helper: Read DB
 export function readDb(): DatabaseSchema {
     try {
         ensureDb();
+        const stat = fs.statSync(DB_PATH);
+        if (_cachedDb && stat.mtimeMs === _cachedMtime) {
+            return _cachedDb;
+        }
+
         const data = fs.readFileSync(DB_PATH, 'utf-8');
         let parsed: Partial<DatabaseSchema>;
         
@@ -170,7 +187,7 @@ export function readDb(): DatabaseSchema {
             })
             : INITIAL_DATA.admissionFormTemplates;
 
-        return {
+        const result: DatabaseSchema = {
             ...INITIAL_DATA,
             ...parsed,
             // Ensure core arrays are preserved as they were in the parsed data if they exist
@@ -239,6 +256,8 @@ export function readDb(): DatabaseSchema {
             accessorySales: parsed.accessorySales ?? INITIAL_DATA.accessorySales,
             revertedTransactions: parsed.revertedTransactions ?? INITIAL_DATA.revertedTransactions,
             schoolSubscriptions: (parsed as any).schoolSubscriptions ?? [],
+            staffDepartments: (parsed as any).staffDepartments ?? [],
+            staffDesignations: (parsed as any).staffDesignations ?? [],
             platformConfig: {
                 ...INITIAL_DATA.platformConfig,
                 ...((parsed as any).platformConfig || {}),
@@ -248,6 +267,10 @@ export function readDb(): DatabaseSchema {
                 ...(parsed.globalStudentDefaults || {})
             },
         };
+
+        _cachedDb = result;
+        _cachedMtime = stat.mtimeMs;
+        return result;
     } catch (error) {
         console.error('Failed to read DB:', error);
         throw error; // Propagate the error to prevent silent data loss
@@ -258,19 +281,16 @@ export function readDb(): DatabaseSchema {
 export function writeDb(data: DatabaseSchema) {
     try {
         // Create a backup of the current file before overwriting
-        // Use copyFileSync (not rename) so it works across different filesystems
-        // (e.g. Docker bind-mounts where .bak is on host but source is overlay fs)
         if (fs.existsSync(DB_PATH)) {
             const backupPath = `${DB_PATH}.bak`;
             fs.copyFileSync(DB_PATH, backupPath);
         }
 
-        // Write directly to DB_PATH.
-        // NOTE: We intentionally avoid the temp-file + renameSync pattern here
-        // because in Docker, DB_PATH is a host bind-mount while a sibling .tmp
-        // file would land on the container overlay filesystem — Linux rename()
-        // cannot cross filesystem boundaries (EXDEV error).
         fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+        _cachedDb = data;
+        if (fs.existsSync(DB_PATH)) {
+            _cachedMtime = fs.statSync(DB_PATH).mtimeMs;
+        }
     } catch (error) {
         console.error('Failed to write DB:', error);
         throw error; // Re-throw to allow callers to handle failure

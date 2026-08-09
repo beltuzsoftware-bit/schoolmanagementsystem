@@ -526,20 +526,22 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                             </div>
                             <InputField label="Aadhar no." name="aadhar" value={formData.aadhar} onChange={handleChange} />
 
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs font-semibold text-slate-700 uppercase">Gender</label>
-                                <div className="flex items-center gap-4 py-2">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase">Gender</label>
+                                <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60 h-[42px]">
                                     {['Male', 'Female', 'Other'].map(g => (
-                                        <label key={g} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="gender"
-                                                value={g}
-                                                checked={formData.gender === g}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-                                            /> {g}
-                                        </label>
+                                        <button
+                                            type="button"
+                                            key={g}
+                                            onClick={() => handleChange({ target: { name: 'gender', value: g } } as any)}
+                                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                                                formData.gender === g
+                                                    ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                                            }`}
+                                        >
+                                            {g}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
@@ -548,10 +550,10 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                             {shouldShow('fatherName') && <InputField label="Father name" name="fatherName" value={formData.fatherName} onChange={handleChange} required={isRequired('fatherName')} />}
                             {shouldShow('motherName') && <InputField label="Mother name" name="motherName" value={formData.motherName} onChange={handleChange} required={isRequired('motherName')} />}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Photo</label>
-                                <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                                <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase">Photo</label>
+                                <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-200 shadow-xs h-[42px]">
                                     {formData.photo ? (
-                                        <div className="relative w-16 h-20 rounded-lg overflow-hidden border border-indigo-200 shadow-sm shrink-0 bg-white">
+                                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-indigo-200 shrink-0 bg-slate-100">
                                             <img
                                                 src={formData.photo}
                                                 alt="Staff"
@@ -560,21 +562,21 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
                                             <button
                                                 type="button"
                                                 onClick={() => setFormData(p => ({ ...p, photo: '' }))}
-                                                className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
+                                                className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
                                             >
-                                                <Trash2 size={14} className="text-white" />
+                                                <Trash2 size={12} className="text-white" />
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="w-16 h-20 rounded-lg bg-white border border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
-                                            <User size={24} />
+                                        <div className="w-8 h-8 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                                            <User size={16} />
                                         </div>
                                     )}
                                     <input
                                         type="file"
                                         accept="image/*"
                                         onChange={(e) => handleFileChange(e, 'photo')}
-                                        className="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[9px] file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer w-full"
+                                        className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer w-full"
                                     />
                                 </div>
                             </div>
@@ -1020,15 +1022,11 @@ export default function AdvancedStaffForm({ open, onClose, onSuccess, schoolId, 
     );
 }
 
-function SectionHeader({ icon, title, colorClass = "text-indigo-600 bg-indigo-50/40 border-indigo-100/60" }: { icon: React.ReactNode, title: string, colorClass?: string }) {
-    const themeBg = colorClass.split(' ').find(c => c.startsWith('bg-')) || 'bg-slate-50';
-    const themeBorder = colorClass.split(' ').find(c => c.startsWith('border-')) || 'border-slate-100';
-    const themeText = colorClass.split(' ').find(c => c.startsWith('text-')) || 'text-slate-700';
-
+function SectionHeader({ icon, title }: { icon: React.ReactNode, title: string, colorClass?: string }) {
     return (
-        <div className={`flex items-center gap-3 mb-6 border ${themeBg} ${themeBorder} px-4 py-3 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 hover:border-slate-250`}>
-            <span className={`p-2 rounded-xl bg-white ${themeText} shadow-sm border ${themeBorder}`}>{icon}</span>
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">{title}</h3>
+        <div className="flex items-center gap-3 mb-6 pb-2.5 border-b border-slate-100">
+            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/60 shadow-2xs flex items-center justify-center">{icon}</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">{title}</h3>
         </div>
     );
 }
@@ -1036,7 +1034,7 @@ function SectionHeader({ icon, title, colorClass = "text-indigo-600 bg-indigo-50
 function InputField({ label, type = "text", name, value, onChange, required, placeholder }: any) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
+            <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase leading-none group-focus-within:text-indigo-600 transition-colors">{label}</label>
             <input
                 type={type}
                 name={name}
@@ -1051,7 +1049,7 @@ function InputField({ label, type = "text", name, value, onChange, required, pla
                 }}
                 required={required}
                 placeholder={placeholder}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white transition-all duration-300 shadow-[0_2px_6px_rgba(0,0,0,0.005)] placeholder:text-slate-400 font-medium text-slate-800"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/10 outline-none text-sm bg-white hover:border-slate-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] placeholder:text-slate-400 font-medium text-slate-800"
             />
         </div>
     );
@@ -1060,13 +1058,13 @@ function InputField({ label, type = "text", name, value, onChange, required, pla
 function SelectField({ label, options, name, value, onChange, required }: any) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-0.5 group-focus-within:text-indigo-600 transition-colors">{label}</label>
+            <label className="text-[11px] font-bold text-slate-900 tracking-wide uppercase leading-none group-focus-within:text-indigo-600 transition-colors">{label}</label>
             <select
                 name={name}
                 value={value}
                 onChange={onChange}
                 required={required}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm bg-slate-50/50 hover:bg-slate-50 focus:bg-white cursor-pointer transition-all duration-300 shadow-[0_2px_6px_rgba(0,0,0,0.005)] font-medium text-slate-800"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/10 outline-none text-sm bg-white hover:border-slate-300 cursor-pointer transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] font-medium text-slate-800"
             >
                 <option value="">Select</option>
                 {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}

@@ -2035,6 +2035,92 @@ export async function updateCustomStaffRoles(schoolId: string, roles: string[]) 
     }
 }
 
+// --- STAFF DEPARTMENTS ---
+
+export async function getStaffDepartments(schoolId: string) {
+    const db = readDb() as any;
+    return (db.staffDepartments || []).filter((d: any) => d.schoolId === schoolId);
+}
+
+export async function addStaffDepartment(schoolId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return { success: false, error: 'Name cannot be empty' };
+    const db = readDb() as any;
+    if (!db.staffDepartments) db.staffDepartments = [];
+    const exists = db.staffDepartments.some((d: any) => d.schoolId === schoolId && d.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) return { success: false, error: 'Department already exists' };
+    const newDept = { id: `dept_${Date.now()}`, schoolId, name: trimmed };
+    db.staffDepartments.push(newDept);
+    writeDb(db);
+    revalidatePath('/school-admin/staff/department');
+    return { success: true, department: newDept };
+}
+
+export async function deleteStaffDepartment(id: string) {
+    const db = readDb() as any;
+    if (!db.staffDepartments) return { success: false, error: 'Not found' };
+    db.staffDepartments = db.staffDepartments.filter((d: any) => d.id !== id);
+    writeDb(db);
+    revalidatePath('/school-admin/staff/department');
+    return { success: true };
+}
+
+export async function updateStaffDepartment(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return { success: false, error: 'Name cannot be empty' };
+    const db = readDb() as any;
+    if (!db.staffDepartments) return { success: false, error: 'Not found' };
+    const idx = db.staffDepartments.findIndex((d: any) => d.id === id);
+    if (idx === -1) return { success: false, error: 'Department not found' };
+    db.staffDepartments[idx].name = trimmed;
+    writeDb(db);
+    revalidatePath('/school-admin/staff/department');
+    return { success: true };
+}
+
+// --- STAFF DESIGNATIONS ---
+
+export async function getStaffDesignations(schoolId: string) {
+    const db = readDb() as any;
+    return (db.staffDesignations || []).filter((d: any) => d.schoolId === schoolId);
+}
+
+export async function addStaffDesignation(schoolId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return { success: false, error: 'Name cannot be empty' };
+    const db = readDb() as any;
+    if (!db.staffDesignations) db.staffDesignations = [];
+    const exists = db.staffDesignations.some((d: any) => d.schoolId === schoolId && d.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) return { success: false, error: 'Designation already exists' };
+    const newDes = { id: `des_${Date.now()}`, schoolId, name: trimmed };
+    db.staffDesignations.push(newDes);
+    writeDb(db);
+    revalidatePath('/school-admin/staff/designation');
+    return { success: true, designation: newDes };
+}
+
+export async function deleteStaffDesignation(id: string) {
+    const db = readDb() as any;
+    if (!db.staffDesignations) return { success: false, error: 'Not found' };
+    db.staffDesignations = db.staffDesignations.filter((d: any) => d.id !== id);
+    writeDb(db);
+    revalidatePath('/school-admin/staff/designation');
+    return { success: true };
+}
+
+export async function updateStaffDesignation(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return { success: false, error: 'Name cannot be empty' };
+    const db = readDb() as any;
+    if (!db.staffDesignations) return { success: false, error: 'Not found' };
+    const idx = db.staffDesignations.findIndex((d: any) => d.id === id);
+    if (idx === -1) return { success: false, error: 'Designation not found' };
+    db.staffDesignations[idx].name = trimmed;
+    writeDb(db);
+    revalidatePath('/school-admin/staff/designation');
+    return { success: true };
+}
+
 // --- STAFF PROFILES ---
 
 export async function getStaffProfiles(schoolId?: string) {
@@ -2094,6 +2180,7 @@ export async function addStaff(userData: Partial<User>, profileData: Partial<Sta
         workingDaysPerMonth: profileData.workingDaysPerMonth || 30,
         paymentMode: profileData.paymentMode || 'Bank Transfer',
         photo: profileData.photo || '',
+        qrCode: profileData.qrCode || empId,
         certificate: profileData.certificate || '',
         kycDocument: profileData.kycDocument || '',
         loans: [],
@@ -2315,6 +2402,10 @@ export async function addIDCardTemplate(template: IDCardTemplate) {
         const db = readDb();
         if (!db.idCardTemplates) db.idCardTemplates = [];
 
+        // Normalize dimensions if they are entered/analyzed in 10x millimeter scale (e.g. 540x860 -> 54x86)
+        if (template.width && template.width > 200) template.width = Math.round(template.width / 10);
+        if (template.height && template.height > 200) template.height = Math.round(template.height / 10);
+
         if (!template.id || template.id === 'new') {
             template.id = `tmpl_${Date.now()}`;
         }
@@ -2334,6 +2425,10 @@ export async function updateIDCardTemplate(updatedTemplate: IDCardTemplate) {
     try {
         const db = readDb();
         if (!db.idCardTemplates) return { success: false, error: 'No idCardTemplates array in DB' };
+
+        // Normalize dimensions if they are entered/analyzed in 10x millimeter scale (e.g. 540x860 -> 54x86)
+        if (updatedTemplate.width && updatedTemplate.width > 200) updatedTemplate.width = Math.round(updatedTemplate.width / 10);
+        if (updatedTemplate.height && updatedTemplate.height > 200) updatedTemplate.height = Math.round(updatedTemplate.height / 10);
 
         console.log('[updateIDCardTemplate] Target ID:', updatedTemplate.id);
         console.log('[updateIDCardTemplate] Available IDs:', db.idCardTemplates.map((t: any) => t.id));
