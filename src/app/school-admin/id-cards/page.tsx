@@ -68,6 +68,12 @@ export default function IDCardsPage() {
     const [duplicatingTemplate, setDuplicatingTemplate] = useState<IDCardTemplate | null>(null);
     const [duplicateName, setDuplicateName] = useState("");
 
+    // Create Template Dialog States
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [createName, setCreateName] = useState("Custom Template");
+    const [createTarget, setCreateTarget] = useState<'student' | 'staff' | 'unselected'>('unselected');
+    const [createLayout, setCreateLayout] = useState<'vertical' | 'horizontal'>('vertical');
+
     // AI Creator States
     const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
     const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
@@ -326,9 +332,9 @@ export default function IDCardsPage() {
             signatureText: 'Principal',
             schoolId: school?.id || undefined,
             isGlobal: false,
+            createdFor: 'unselected' as any,
             fields: [
-                { id: 'f1', label: 'Name', key: 'name', bold: true },
-                { id: 'f2', label: 'Class', key: 'className', bold: false }
+                { id: 'f1', label: 'Name', key: 'name', bold: true }
             ]
         };
         setEditingTemplate(newTemplate);
@@ -1519,6 +1525,8 @@ export default function IDCardsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+
 
             {/* ID Card Preview Dialog */}
             <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>

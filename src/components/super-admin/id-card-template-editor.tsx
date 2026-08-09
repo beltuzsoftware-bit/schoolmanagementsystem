@@ -271,8 +271,16 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
 
                 {/* Target Type Selector */}
                 <div className="p-4 border rounded-2xl bg-slate-50/50 space-y-2 border-slate-200">
-                    <Label className="font-black text-xs uppercase tracking-widest text-slate-500">ID Card Template Created For</Label>
-                    <Select value={template.createdFor || 'student'} onValueChange={val => {
+                    <Label className="font-black text-xs uppercase tracking-widest text-slate-900">ID Card Template Created For <span className="text-red-500">*</span></Label>
+                    <Select value={template.createdFor || 'unselected'} onValueChange={val => {
+                        if (val === 'unselected') {
+                            setTemplate(prev => ({
+                                ...prev,
+                                createdFor: 'unselected' as any,
+                                fields: []
+                            }));
+                            return;
+                        }
                         // Update createdFor, clear current fields and add a default Name field
                         setTemplate(prev => ({
                             ...prev,
@@ -293,8 +301,9 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                             <SelectValue placeholder="Select target user type" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                            <SelectItem value="student">Student ID Cards</SelectItem>
-                            <SelectItem value="staff">Staff / Employee ID Cards</SelectItem>
+                            <SelectItem value="unselected">Select (Default)</SelectItem>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -570,7 +579,13 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                 </div>
 
                 <div className="flex gap-3">
-                    <Button onClick={() => onSave(template)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 rounded-2xl font-bold text-white shadow-lg shadow-indigo-100">Save Template</Button>
+                    <Button onClick={() => {
+                        if (!template.createdFor || (template.createdFor as string) === 'unselected') {
+                            toast.error("Please select target audience (Student or Staff)");
+                            return;
+                        }
+                        onSave(template);
+                    }} className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 rounded-2xl font-bold text-white shadow-lg shadow-indigo-100">Save Template</Button>
                     <Button onClick={onCancel} variant="outline" className="flex-1 h-12 rounded-2xl">Cancel</Button>
                 </div>
             </div>
@@ -811,7 +826,7 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="space-y-1.5">
-            <Label className="font-bold text-slate-700 text-xs">{label}</Label>
+            <Label className="font-bold text-slate-900 text-xs">{label}</Label>
             {children}
         </div>
     );
