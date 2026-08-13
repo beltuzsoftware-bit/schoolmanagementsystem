@@ -73,6 +73,15 @@ function IDCardsPageContent() {
     // Staff States
     const [staffList, setStaffList] = useState<Student[]>([]); // mapped to Student shape
 
+    // Pagination States
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 50;
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedClass, selectedSection, selectedDepartment, selectedDesignation, generateMode, searchQuery]);
+
     // Rename Dialog States
     const [renamingTemplate, setRenamingTemplate] = useState<IDCardTemplate | null>(null);
     const [newName, setNewName] = useState("");
@@ -701,6 +710,9 @@ function IDCardsPageContent() {
 
     // The active list used for selection / print
     const activeList = generateMode === 'staff' ? filteredGenerateStaff : filteredGenerateStudents;
+
+    const totalPages = Math.ceil(activeList.length / pageSize);
+    const paginatedList = activeList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const handleToggleStudentSelection = (studentId: string) => {
         const next = new Set(selectedStudentIds);
@@ -1426,7 +1438,7 @@ function IDCardsPageContent() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {activeList.map(member => (
+                                        {paginatedList.map(member => (
                                             <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <Checkbox 
@@ -1451,6 +1463,38 @@ function IDCardsPageContent() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div className="text-xs font-semibold text-slate-500">
+                                        Showing {Math.min(activeList.length, (currentPage - 1) * pageSize + 1)} to {Math.min(activeList.length, currentPage * pageSize)} of {activeList.length} members
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentPage === 1}
+                                            className="h-8 px-3 text-xs font-bold border-slate-200 text-slate-600 dark:text-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                                        >
+                                            Previous
+                                        </Button>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md">
+                                            {currentPage} / {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="h-8 px-3 text-xs font-bold border-slate-200 text-slate-600 dark:text-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                             {activeList.length === 0 && (
                                 <div className="py-12 text-center">
                                     <User className="h-12 w-12 text-slate-200 mx-auto mb-3" />
