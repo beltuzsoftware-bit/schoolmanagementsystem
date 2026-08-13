@@ -289,7 +289,7 @@ export function writeDb(data: DatabaseSchema) {
                 fs.mkdirSync(publicTemplatesDir, { recursive: true });
             }
             
-            data.idCardTemplates = data.idCardTemplates.map(template => {
+            data.idCardTemplates = data.idCardTemplates.map((template: any) => {
                 // Background image base64 extraction
                 if (template.backgroundImage && template.backgroundImage.startsWith('data:image/')) {
                     try {
