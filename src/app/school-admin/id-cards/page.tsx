@@ -20,7 +20,7 @@ import {
 import { IdCard, Printer, Search, User, Users, Plus, Edit2, Trash2, Copy, CheckSquare, Square, RefreshCw, Download, Loader2, Sparkles, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getIDCardTemplates, getSchools, getSchool, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout, getStaffProfiles, getUsers } from "@/app/actions";
+import { getIDCardTemplates, getSchools, getSchool, getStudents, addIDCardTemplate, updateIDCardTemplate, deleteIDCardTemplate, analyzeIDCardLayout, getStaffProfiles, getUsers, getIDCardsPageData } from "@/app/actions";
 import { IDCardTemplate, School, Student } from "@/types";
 import { IDCardPreview } from "@/components/id-cards/id-card-preview";
 import IDCardTemplateEditor from "@/components/super-admin/id-card-template-editor";
@@ -229,25 +229,20 @@ function IDCardsPageContent() {
             }
 
             try {
-                // Execute all initial database queries in PARALLEL instead of serial await
-                const [s, stds, t, staffProfiles, allUsers] = await Promise.all([
-                    userSchoolId ? getSchool(userSchoolId) : Promise.resolve(null),
-                    userSchoolId ? getStudents(userSchoolId) : Promise.resolve([]),
-                    getIDCardTemplates(userSchoolId),
-                    userSchoolId ? getStaffProfiles(userSchoolId) : Promise.resolve([]),
-                    userSchoolId ? getUsers({ schoolId: userSchoolId }) : Promise.resolve([])
-                ]);
+                // Single combined DB read - replaces 5 separate server action calls
+                const data = await getIDCardsPageData(userSchoolId);
 
-                if (s) setSchool(s as School);
-                if (stds) setStudents(stds as Student[]);
-                if (t) {
+                if (data.school) setSchool(data.school as School);
+                if (data.students) setStudents(data.students as Student[]);
+                if (data.templates) {
+                    const t = data.templates;
                     setTemplates(t);
                     const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
                     const available = sT.length > 0 ? sT : t;
                     if (available.length > 0) {
                         setSelectedTemplate(available[0].id);
                         const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
-                        setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
+                        setGenerateTemplate(defaultTmpl ? defaultTmpl.id : "");
                     } else {
                         setSelectedTemplate("");
                         setGenerateTemplate("");
@@ -255,10 +250,10 @@ function IDCardsPageContent() {
                 }
 
                 // Map staff profiles to Student shape so IDCardPreview works unchanged
-                if (staffProfiles && allUsers) {
+                if (data.staffProfiles && data.users) {
                     const usersMap = new Map<string, any>();
-                    (allUsers as any[]).forEach((u: any) => usersMap.set(u.id, u));
-                    const mapped: Student[] = (staffProfiles as any[]).map((profile: any) => {
+                    (data.users as any[]).forEach((u: any) => usersMap.set(u.id, u));
+                    const mapped: Student[] = (data.staffProfiles as any[]).map((profile: any) => {
                         const user = usersMap.get(profile.userId) || {};
                         return {
                             id: profile.id,
@@ -280,7 +275,6 @@ function IDCardsPageContent() {
                             photo: user.photo || profile.photo || '',
                             status: (profile.status === 'Active' ? 'Active' : 'Inactive') as any,
                             currentSessionId: '',
-                            // Keep extra staff fields for display
                             _staffDepartment: profile.department || '',
                             _staffDesignation: profile.designation || '',
                         } as Student & { _staffDepartment: string; _staffDesignation: string };

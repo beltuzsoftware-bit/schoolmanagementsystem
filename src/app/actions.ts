@@ -4499,3 +4499,36 @@ export async function importStaffMembers(schoolId: string, staffList: BulkStaffI
 }
 
 
+/**
+ * Combined action: loads ALL data needed for the ID Cards page in ONE DB read.
+ * Replaces 5 separate server action calls with a single round trip.
+ */
+export async function getIDCardsPageData(schoolId: string) {
+    const db = readDb();
+
+    // School
+    const school = db.schools?.find((s: any) => s.id === schoolId || s.schoolId === schoolId) || null;
+
+    // Students
+    const students = schoolId
+        ? (db.students || []).filter((s: any) => s.schoolId === schoolId)
+        : [];
+
+    // ID Card Templates (school-specific + global)
+    const templates = (db.idCardTemplates || []).filter(
+        (t: any) => !t.schoolId || t.schoolId === schoolId
+    );
+
+    // Staff profiles (filter by school users)
+    const schoolUsers = (db.users || []).filter((u: any) => u.schoolId === schoolId);
+    const schoolUserIdSet = new Set(schoolUsers.map((u: any) => u.id));
+    const staffProfiles = (db.staffProfiles || []).filter((p: any) => schoolUserIdSet.has(p.userId));
+
+    return {
+        school,
+        students,
+        templates,
+        staffProfiles,
+        users: schoolUsers,
+    };
+}
