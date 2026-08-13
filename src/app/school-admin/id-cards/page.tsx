@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
     Card,
     CardContent,
@@ -32,7 +33,10 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 
-export default function IDCardsPage() {
+function IDCardsPageContent() {
+    const searchParams = useSearchParams();
+    const modeParam = searchParams.get('mode');
+
     const [templates, setTemplates] = useState<IDCardTemplate[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<string>("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -47,6 +51,15 @@ export default function IDCardsPage() {
 
     // Generate Tab States
     const [generateMode, setGenerateMode] = useState<'student' | 'staff'>('student');
+
+    useEffect(() => {
+        if (modeParam === 'staff') {
+            setGenerateMode('staff');
+        } else if (modeParam === 'student') {
+            setGenerateMode('student');
+        }
+    }, [modeParam]);
+
     const [selectedClass, setSelectedClass] = useState<string>("");
     const [selectedSection, setSelectedSection] = useState<string>("");
     const [selectedDepartment, setSelectedDepartment] = useState<string>("");
@@ -1885,5 +1898,17 @@ export default function IDCardsPage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function IDCardsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+        }>
+            <IDCardsPageContent />
+        </Suspense>
     );
 }

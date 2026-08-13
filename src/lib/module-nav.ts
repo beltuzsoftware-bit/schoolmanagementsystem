@@ -45,6 +45,7 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
         icon: 'Briefcase',
         children: [
             { title: 'Staff Members', href: '/school-admin/staff' },
+            { title: 'Staff ID Card', href: '/school-admin/id-cards?mode=staff' },
             { title: 'Department', href: '/school-admin/staff/department' },
             { title: 'Designation', href: '/school-admin/staff/designation' },
             { title: 'Role', href: '/school-admin/roles' },
