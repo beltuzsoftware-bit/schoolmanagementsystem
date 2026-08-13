@@ -282,6 +282,47 @@ export function readDb(): DatabaseSchema {
 // Helper: Write DB
 export function writeDb(data: DatabaseSchema) {
     try {
+        // Automatically extract base64 images from templates before writing to disk
+        if (data.idCardTemplates && data.idCardTemplates.length > 0) {
+            const publicTemplatesDir = path.resolve(process.cwd(), 'public/images/templates');
+            if (!fs.existsSync(publicTemplatesDir)) {
+                fs.mkdirSync(publicTemplatesDir, { recursive: true });
+            }
+            
+            data.idCardTemplates = data.idCardTemplates.map(template => {
+                // Background image base64 extraction
+                if (template.backgroundImage && template.backgroundImage.startsWith('data:image/')) {
+                    try {
+                        const match = template.backgroundImage.match(/^data:image\/(\w+);base64,/);
+                        const ext = match ? match[1] : 'png';
+                        const base64Data = template.backgroundImage.replace(/^data:image\/\w+;base64,/, '');
+                        const filename = `${template.id}-bg.${ext}`;
+                        const filepath = path.join(publicTemplatesDir, filename);
+                        fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
+                        template.backgroundImage = `/images/templates/${filename}`;
+                    } catch (e) {
+                        console.error(`[writeDb] Failed to extract template background image:`, e);
+                    }
+                }
+                
+                // Logo base64 extraction
+                if (template.logo && template.logo.startsWith('data:image/')) {
+                    try {
+                        const match = template.logo.match(/^data:image\/(\w+);base64,/);
+                        const ext = match ? match[1] : 'png';
+                        const base64Data = template.logo.replace(/^data:image\/\w+;base64,/, '');
+                        const filename = `${template.id}-logo.${ext}`;
+                        const filepath = path.join(publicTemplatesDir, filename);
+                        fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
+                        template.logo = `/images/templates/${filename}`;
+                    } catch (e) {
+                        console.error(`[writeDb] Failed to extract template logo image:`, e);
+                    }
+                }
+                return template;
+            });
+        }
+
         // Create a backup of the current file before overwriting
         if (fs.existsSync(DB_PATH)) {
             const backupPath = `${DB_PATH}.bak`;
