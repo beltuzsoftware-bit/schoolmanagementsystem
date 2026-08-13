@@ -142,12 +142,14 @@ function ensureDb() {
     }
 }
 
-let _cachedDb: DatabaseSchema | null = null;
-let _cachedMtime: number = 0;
+const globalForDb = globalThis as unknown as {
+    _cachedDb?: DatabaseSchema;
+    _cachedMtime?: number;
+};
 
 export function invalidateDbCache() {
-    _cachedDb = null;
-    _cachedMtime = 0;
+    globalForDb._cachedDb = undefined;
+    globalForDb._cachedMtime = undefined;
 }
 
 // Helper: Read DB
@@ -155,8 +157,8 @@ export function readDb(): DatabaseSchema {
     try {
         ensureDb();
         const stat = fs.statSync(DB_PATH);
-        if (_cachedDb && stat.mtimeMs === _cachedMtime) {
-            return _cachedDb;
+        if (globalForDb._cachedDb && stat.mtimeMs === globalForDb._cachedMtime) {
+            return globalForDb._cachedDb;
         }
 
         const data = fs.readFileSync(DB_PATH, 'utf-8');
@@ -268,8 +270,8 @@ export function readDb(): DatabaseSchema {
             },
         };
 
-        _cachedDb = result;
-        _cachedMtime = stat.mtimeMs;
+        globalForDb._cachedDb = result;
+        globalForDb._cachedMtime = stat.mtimeMs;
         return result;
     } catch (error) {
         console.error('Failed to read DB:', error);
@@ -287,9 +289,9 @@ export function writeDb(data: DatabaseSchema) {
         }
 
         fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
-        _cachedDb = data;
+        globalForDb._cachedDb = data;
         if (fs.existsSync(DB_PATH)) {
-            _cachedMtime = fs.statSync(DB_PATH).mtimeMs;
+            globalForDb._cachedMtime = fs.statSync(DB_PATH).mtimeMs;
         }
     } catch (error) {
         console.error('Failed to write DB:', error);
