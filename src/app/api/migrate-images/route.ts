@@ -1,43 +1,95 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import { readDb, writeDb } from '@/lib/db';
 
-// One-time migration endpoint: Reads the server's data.json, 
-// triggers writeDb which auto-extracts all base64 images to public/images/,
-// then writes the cleaned data.json back. Call this once after deployment.
+const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'data.json');
+const DATA_IMAGES_DIR = path.resolve(path.dirname(DB_PATH), 'data-images');
+
+function extractBase64(items: any[], subDir: string, field: string, idField: string, urlSuffix: string): { items: any[], count: number } {
+    const dir = path.join(DATA_IMAGES_DIR, subDir);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    let count = 0;
+    const result = items.map((item: any) => {
+        if (item[field] && item[field].startsWith('data:image/')) {
+            try {
+                const match = item[field].match(/^data:image\/(\w+);base64,/);
+                const ext = match ? match[1] : 'png';
+                const filename = `${item[idField]}-${urlSuffix}.${ext}`;
+                fs.writeFileSync(path.join(dir, filename), Buffer.from(item[field].replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+                item[field] = `/api/images/${subDir}/${filename}`;
+                count++;
+            } catch (e) {
+                console.error(`[migrate-images] Failed to extract ${subDir}/${field}:`, e);
+            }
+        }
+        // Also fix old /images/... paths (ephemeral) → copy to data-images/ and update URL
+        else if (item[field] && item[field].startsWith('/images/')) {
+            const oldPath = path.resolve(process.cwd(), 'public' + item[field]);
+            if (fs.existsSync(oldPath)) {
+                const filename = path.basename(item[field]);
+                const newPath = path.join(dir, filename);
+                if (!fs.existsSync(newPath)) {
+                    fs.copyFileSync(oldPath, newPath);
+                }
+                item[field] = `/api/images/${subDir}/${filename}`;
+                count++;
+            }
+        }
+        return item;
+    });
+    return { items: result, count };
+}
+
+// One-time migration endpoint: Extracts all base64 images from the server's data.json
+// into the persistent data-images/ directory and updates all URL references.
+// Also fixes any old /images/... ephemeral paths to /api/images/... persistent paths.
 export async function GET() {
     try {
-        console.log('[migrate-images] Starting base64 image extraction migration...');
-        
-        const db = readDb();
-        
-        // Count base64 images before migration
-        const schoolsWithBase64 = db.schools?.filter((s: any) => s.logo?.startsWith('data:image/')).length || 0;
-        const studentsWithBase64 = db.students?.filter((s: any) => s.photo?.startsWith('data:image/')).length || 0;
-        const staffWithBase64 = db.staffProfiles?.filter((s: any) => s.photo?.startsWith('data:image/')).length || 0;
-        const templatesWithBase64Bg = db.idCardTemplates?.filter((t: any) => t.backgroundImage?.startsWith('data:image/')).length || 0;
-        const templatesWithBase64Logo = db.idCardTemplates?.filter((t: any) => t.logo?.startsWith('data:image/')).length || 0;
-        
+        console.log('[migrate-images] Starting migration...');
+        if (!fs.existsSync(DATA_IMAGES_DIR)) fs.mkdirSync(DATA_IMAGES_DIR, { recursive: true });
+
+        const db = readDb() as any;
         const dbSizeBefore = JSON.stringify(db).length;
-        
-        console.log(`[migrate-images] Found: ${schoolsWithBase64} school logos, ${studentsWithBase64} student photos, ${staffWithBase64} staff photos, ${templatesWithBase64Bg} template backgrounds, ${templatesWithBase64Logo} template logos to extract`);
-        
-        // writeDb will automatically extract all base64 images
-        writeDb(db);
-        
-        // Re-read to measure size after
-        const dbAfter = readDb();
-        const dbSizeAfter = JSON.stringify(dbAfter).length;
-        
+
+        const schoolResult = extractBase64(db.schools || [], 'schools', 'logo', 'id', 'logo');
+        db.schools = schoolResult.items;
+
+        const studentResult = extractBase64(db.students || [], 'students', 'photo', 'id', 'photo');
+        db.students = studentResult.items;
+
+        const staffResult = extractBase64(db.staffProfiles || [], 'staff', 'photo', 'id', 'photo');
+        db.staffProfiles = staffResult.items;
+
+        let templateBgCount = 0, templateLogoCount = 0;
+        if (db.idCardTemplates) {
+            const bgResult = extractBase64(db.idCardTemplates, 'templates', 'backgroundImage', 'id', 'bg');
+            db.idCardTemplates = bgResult.items;
+            templateBgCount = bgResult.count;
+
+            const logoResult = extractBase64(db.idCardTemplates, 'templates', 'logo', 'id', 'logo');
+            db.idCardTemplates = logoResult.items;
+            templateLogoCount = logoResult.count;
+        }
+
+        // Write the updated db (use fs directly to avoid re-triggering extraction)
+        const backup = `${DB_PATH}.premigrate.bak`;
+        if (fs.existsSync(DB_PATH) && !fs.existsSync(backup)) fs.copyFileSync(DB_PATH, backup);
+        fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf-8');
+
+        const dbSizeAfter = JSON.stringify(db).length;
+
         return NextResponse.json({
             success: true,
-            message: 'Base64 image migration complete!',
+            message: 'Migration complete! All images moved to persistent data-images/ directory.',
             extracted: {
-                schoolLogos: schoolsWithBase64,
-                studentPhotos: studentsWithBase64,
-                staffPhotos: staffWithBase64,
-                templateBackgrounds: templatesWithBase64Bg,
-                templateLogos: templatesWithBase64Logo,
+                schoolLogos: schoolResult.count,
+                studentPhotos: studentResult.count,
+                staffPhotos: staffResult.count,
+                templateBackgrounds: templateBgCount,
+                templateLogos: templateLogoCount,
             },
+            dataImagesDir: DATA_IMAGES_DIR,
             sizeBefore: `${(dbSizeBefore / 1024 / 1024).toFixed(2)} MB`,
             sizeAfter: `${(dbSizeAfter / 1024 / 1024).toFixed(2)} MB`,
             reduction: `${(((dbSizeBefore - dbSizeAfter) / dbSizeBefore) * 100).toFixed(1)}%`,

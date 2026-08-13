@@ -280,101 +280,59 @@ export function readDb(): DatabaseSchema {
 }
 
 // Helper: Write DB
+// IMPORTANT: Images are saved to data-images/ (next to data.json on the persistent volume),
+// NOT to public/images/ (which is inside the Docker container and gets wiped on each redeploy).
+// Images are served via the /api/images/[...path] route.
+const DATA_IMAGES_DIR = path.resolve(path.dirname(DB_PATH), 'data-images');
+
+function extractBase64Field(
+    items: any[],
+    subDir: string,
+    field: string,
+    idField: string,
+    urlPrefix: string
+): any[] {
+    const dir = path.join(DATA_IMAGES_DIR, subDir);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return items.map((item: any) => {
+        if (item[field] && item[field].startsWith('data:image/')) {
+            try {
+                const match = item[field].match(/^data:image\/(\w+);base64,/);
+                const ext = match ? match[1] : 'png';
+                const filename = `${item[idField]}-${urlPrefix}.${ext}`;
+                fs.writeFileSync(path.join(dir, filename), Buffer.from(item[field].replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+                item[field] = `/api/images/${subDir}/${filename}`;
+            } catch (e) {
+                console.error(`[writeDb] Failed to extract ${subDir} ${field}:`, e);
+            }
+        }
+        return item;
+    });
+}
+
 export function writeDb(data: DatabaseSchema) {
     try {
-        // Automatically extract base64 images from templates before writing to disk
+        if (!fs.existsSync(DATA_IMAGES_DIR)) fs.mkdirSync(DATA_IMAGES_DIR, { recursive: true });
+
+        // Extract template background images and logos → data-images/templates/
         if (data.idCardTemplates && data.idCardTemplates.length > 0) {
-            const publicTemplatesDir = path.resolve(process.cwd(), 'public/images/templates');
-            if (!fs.existsSync(publicTemplatesDir)) {
-                fs.mkdirSync(publicTemplatesDir, { recursive: true });
-            }
-            
-            data.idCardTemplates = data.idCardTemplates.map((template: any) => {
-                // Background image base64 extraction
-                if (template.backgroundImage && template.backgroundImage.startsWith('data:image/')) {
-                    try {
-                        const match = template.backgroundImage.match(/^data:image\/(\w+);base64,/);
-                        const ext = match ? match[1] : 'png';
-                        const base64Data = template.backgroundImage.replace(/^data:image\/\w+;base64,/, '');
-                        const filename = `${template.id}-bg.${ext}`;
-                        const filepath = path.join(publicTemplatesDir, filename);
-                        fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
-                        template.backgroundImage = `/images/templates/${filename}`;
-                    } catch (e) {
-                        console.error(`[writeDb] Failed to extract template background image:`, e);
-                    }
-                }
-                
-                // Logo base64 extraction
-                if (template.logo && template.logo.startsWith('data:image/')) {
-                    try {
-                        const match = template.logo.match(/^data:image\/(\w+);base64,/);
-                        const ext = match ? match[1] : 'png';
-                        const base64Data = template.logo.replace(/^data:image\/\w+;base64,/, '');
-                        const filename = `${template.id}-logo.${ext}`;
-                        const filepath = path.join(publicTemplatesDir, filename);
-                        fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
-                        template.logo = `/images/templates/${filename}`;
-                    } catch (e) {
-                        console.error(`[writeDb] Failed to extract template logo image:`, e);
-                    }
-                }
-                return template;
-            });
+            data.idCardTemplates = extractBase64Field(data.idCardTemplates, 'templates', 'backgroundImage', 'id', 'bg');
+            data.idCardTemplates = extractBase64Field(data.idCardTemplates, 'templates', 'logo', 'id', 'logo');
         }
 
-        // Extract base64 school logos to filesystem
+        // Extract school logos → data-images/schools/
         if (data.schools && data.schools.length > 0) {
-            const schoolsDir = path.resolve(process.cwd(), 'public/images/schools');
-            if (!fs.existsSync(schoolsDir)) fs.mkdirSync(schoolsDir, { recursive: true });
-            data.schools = data.schools.map((school: any) => {
-                if (school.logo && school.logo.startsWith('data:image/')) {
-                    try {
-                        const match = school.logo.match(/^data:image\/(\w+);base64,/);
-                        const ext = match ? match[1] : 'png';
-                        const filename = `${school.id}-logo.${ext}`;
-                        fs.writeFileSync(path.join(schoolsDir, filename), Buffer.from(school.logo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
-                        school.logo = `/images/schools/${filename}`;
-                    } catch (e) { console.error('[writeDb] Failed to extract school logo:', e); }
-                }
-                return school;
-            });
+            data.schools = extractBase64Field(data.schools, 'schools', 'logo', 'id', 'logo') as any;
         }
 
-        // Extract base64 student photos to filesystem
+        // Extract student photos → data-images/students/
         if (data.students && data.students.length > 0) {
-            const studentsDir = path.resolve(process.cwd(), 'public/images/students');
-            if (!fs.existsSync(studentsDir)) fs.mkdirSync(studentsDir, { recursive: true });
-            data.students = data.students.map((student: any) => {
-                if (student.photo && student.photo.startsWith('data:image/')) {
-                    try {
-                        const match = student.photo.match(/^data:image\/(\w+);base64,/);
-                        const ext = match ? match[1] : 'png';
-                        const filename = `${student.id}-photo.${ext}`;
-                        fs.writeFileSync(path.join(studentsDir, filename), Buffer.from(student.photo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
-                        student.photo = `/images/students/${filename}`;
-                    } catch (e) { console.error('[writeDb] Failed to extract student photo:', e); }
-                }
-                return student;
-            });
+            data.students = extractBase64Field(data.students, 'students', 'photo', 'id', 'photo') as any;
         }
 
-        // Extract base64 staff photos to filesystem
+        // Extract staff photos → data-images/staff/
         if (data.staffProfiles && data.staffProfiles.length > 0) {
-            const staffDir = path.resolve(process.cwd(), 'public/images/staff');
-            if (!fs.existsSync(staffDir)) fs.mkdirSync(staffDir, { recursive: true });
-            data.staffProfiles = data.staffProfiles.map((staff: any) => {
-                if (staff.photo && staff.photo.startsWith('data:image/')) {
-                    try {
-                        const match = staff.photo.match(/^data:image\/(\w+);base64,/);
-                        const ext = match ? match[1] : 'png';
-                        const filename = `${staff.id}-photo.${ext}`;
-                        fs.writeFileSync(path.join(staffDir, filename), Buffer.from(staff.photo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
-                        staff.photo = `/images/staff/${filename}`;
-                    } catch (e) { console.error('[writeDb] Failed to extract staff photo:', e); }
-                }
-                return staff;
-            });
+            data.staffProfiles = extractBase64Field(data.staffProfiles, 'staff', 'photo', 'id', 'photo') as any;
         }
 
         // Create a backup of the current file before overwriting
@@ -393,6 +351,7 @@ export function writeDb(data: DatabaseSchema) {
         throw error; // Re-throw to allow callers to handle failure
     }
 }
+
 
 // Helper: Resolve school by multiple possible identifiers
 export function resolveSchool(schoolIdOrIdentifier: string): any {
