@@ -323,6 +323,60 @@ export function writeDb(data: DatabaseSchema) {
             });
         }
 
+        // Extract base64 school logos to filesystem
+        if (data.schools && data.schools.length > 0) {
+            const schoolsDir = path.resolve(process.cwd(), 'public/images/schools');
+            if (!fs.existsSync(schoolsDir)) fs.mkdirSync(schoolsDir, { recursive: true });
+            data.schools = data.schools.map((school: any) => {
+                if (school.logo && school.logo.startsWith('data:image/')) {
+                    try {
+                        const match = school.logo.match(/^data:image\/(\w+);base64,/);
+                        const ext = match ? match[1] : 'png';
+                        const filename = `${school.id}-logo.${ext}`;
+                        fs.writeFileSync(path.join(schoolsDir, filename), Buffer.from(school.logo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+                        school.logo = `/images/schools/${filename}`;
+                    } catch (e) { console.error('[writeDb] Failed to extract school logo:', e); }
+                }
+                return school;
+            });
+        }
+
+        // Extract base64 student photos to filesystem
+        if (data.students && data.students.length > 0) {
+            const studentsDir = path.resolve(process.cwd(), 'public/images/students');
+            if (!fs.existsSync(studentsDir)) fs.mkdirSync(studentsDir, { recursive: true });
+            data.students = data.students.map((student: any) => {
+                if (student.photo && student.photo.startsWith('data:image/')) {
+                    try {
+                        const match = student.photo.match(/^data:image\/(\w+);base64,/);
+                        const ext = match ? match[1] : 'png';
+                        const filename = `${student.id}-photo.${ext}`;
+                        fs.writeFileSync(path.join(studentsDir, filename), Buffer.from(student.photo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+                        student.photo = `/images/students/${filename}`;
+                    } catch (e) { console.error('[writeDb] Failed to extract student photo:', e); }
+                }
+                return student;
+            });
+        }
+
+        // Extract base64 staff photos to filesystem
+        if (data.staffProfiles && data.staffProfiles.length > 0) {
+            const staffDir = path.resolve(process.cwd(), 'public/images/staff');
+            if (!fs.existsSync(staffDir)) fs.mkdirSync(staffDir, { recursive: true });
+            data.staffProfiles = data.staffProfiles.map((staff: any) => {
+                if (staff.photo && staff.photo.startsWith('data:image/')) {
+                    try {
+                        const match = staff.photo.match(/^data:image\/(\w+);base64,/);
+                        const ext = match ? match[1] : 'png';
+                        const filename = `${staff.id}-photo.${ext}`;
+                        fs.writeFileSync(path.join(staffDir, filename), Buffer.from(staff.photo.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+                        staff.photo = `/images/staff/${filename}`;
+                    } catch (e) { console.error('[writeDb] Failed to extract staff photo:', e); }
+                }
+                return staff;
+            });
+        }
+
         // Create a backup of the current file before overwriting
         if (fs.existsSync(DB_PATH)) {
             const backupPath = `${DB_PATH}.bak`;
