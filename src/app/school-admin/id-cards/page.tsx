@@ -219,63 +219,68 @@ function IDCardsPageContent() {
                 }
             }
 
-            // Execute all initial database queries in PARALLEL instead of serial await
-            const [s, stds, t, staffProfiles, allUsers] = await Promise.all([
-                userSchoolId ? getSchool(userSchoolId) : Promise.resolve(null),
-                userSchoolId ? getStudents(userSchoolId) : Promise.resolve([]),
-                getIDCardTemplates(userSchoolId),
-                userSchoolId ? getStaffProfiles(userSchoolId) : Promise.resolve([]),
-                userSchoolId ? getUsers({ schoolId: userSchoolId }) : Promise.resolve([])
-            ]);
+            try {
+                // Execute all initial database queries in PARALLEL instead of serial await
+                const [s, stds, t, staffProfiles, allUsers] = await Promise.all([
+                    userSchoolId ? getSchool(userSchoolId) : Promise.resolve(null),
+                    userSchoolId ? getStudents(userSchoolId) : Promise.resolve([]),
+                    getIDCardTemplates(userSchoolId),
+                    userSchoolId ? getStaffProfiles(userSchoolId) : Promise.resolve([]),
+                    userSchoolId ? getUsers({ schoolId: userSchoolId }) : Promise.resolve([])
+                ]);
 
-            if (s) setSchool(s as School);
-            if (stds) setStudents(stds as Student[]);
-            if (t) {
-                setTemplates(t);
-                const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
-                const available = sT.length > 0 ? sT : t;
-                if (available.length > 0) {
-                    setSelectedTemplate(available[0].id);
-                    const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
-                    setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
-                } else {
-                    setSelectedTemplate("");
-                    setGenerateTemplate("");
+                if (s) setSchool(s as School);
+                if (stds) setStudents(stds as Student[]);
+                if (t) {
+                    setTemplates(t);
+                    const sT = t.filter((tmpl: any) => tmpl.schoolId === userSchoolId);
+                    const available = sT.length > 0 ? sT : t;
+                    if (available.length > 0) {
+                        setSelectedTemplate(available[0].id);
+                        const defaultTmpl = available.find((tmpl: any) => tmpl.isDefault) || available[0];
+                        setGenerateTemplate(defaultTmpl ? defaultTmpl.id : ""); 
+                    } else {
+                        setSelectedTemplate("");
+                        setGenerateTemplate("");
+                    }
                 }
-            }
 
-            // Map staff profiles to Student shape so IDCardPreview works unchanged
-            if (staffProfiles && allUsers) {
-                const usersMap = new Map<string, any>();
-                (allUsers as any[]).forEach((u: any) => usersMap.set(u.id, u));
-                const mapped: Student[] = (staffProfiles as any[]).map((profile: any) => {
-                    const user = usersMap.get(profile.userId) || {};
-                    return {
-                        id: profile.id,
-                        schoolId: userSchoolId,
-                        name: user.name || profile.designation || 'Staff Member',
-                        firstName: (user.name || '').split(' ')[0] || '',
-                        lastName: (user.name || '').split(' ').slice(1).join(' ') || '',
-                        admissionNumber: profile.staffId || profile.id,
-                        rollNumber: '',
-                        className: profile.designation || '',
-                        section: profile.department || '',
-                        phone: profile.personalDetails?.phone || '',
-                        currentAddress: profile.personalDetails?.address || '',
-                        bloodGroup: profile.personalDetails?.bloodGroup || '',
-                        dob: profile.personalDetails?.dob || '',
-                        gender: profile.personalDetails?.gender || '',
-                        fatherName: profile.personalDetails?.fatherName || '',
-                        motherName: profile.personalDetails?.motherName || '',
-                        photo: user.photo || profile.photo || '',
-                        status: (profile.status === 'Active' ? 'Active' : 'Inactive') as any,
-                        currentSessionId: '',
-                        // Keep extra staff fields for display
-                        _staffDepartment: profile.department || '',
-                        _staffDesignation: profile.designation || '',
-                    } as Student & { _staffDepartment: string; _staffDesignation: string };
-                });
-                setStaffList(mapped);
+                // Map staff profiles to Student shape so IDCardPreview works unchanged
+                if (staffProfiles && allUsers) {
+                    const usersMap = new Map<string, any>();
+                    (allUsers as any[]).forEach((u: any) => usersMap.set(u.id, u));
+                    const mapped: Student[] = (staffProfiles as any[]).map((profile: any) => {
+                        const user = usersMap.get(profile.userId) || {};
+                        return {
+                            id: profile.id,
+                            schoolId: userSchoolId,
+                            name: user.name || profile.designation || 'Staff Member',
+                            firstName: (user.name || '').split(' ')[0] || '',
+                            lastName: (user.name || '').split(' ').slice(1).join(' ') || '',
+                            admissionNumber: profile.staffId || profile.id,
+                            rollNumber: '',
+                            className: profile.designation || '',
+                            section: profile.department || '',
+                            phone: profile.personalDetails?.phone || '',
+                            currentAddress: profile.personalDetails?.address || '',
+                            bloodGroup: profile.personalDetails?.bloodGroup || '',
+                            dob: profile.personalDetails?.dob || '',
+                            gender: profile.personalDetails?.gender || '',
+                            fatherName: profile.personalDetails?.fatherName || '',
+                            motherName: profile.personalDetails?.motherName || '',
+                            photo: user.photo || profile.photo || '',
+                            status: (profile.status === 'Active' ? 'Active' : 'Inactive') as any,
+                            currentSessionId: '',
+                            // Keep extra staff fields for display
+                            _staffDepartment: profile.department || '',
+                            _staffDesignation: profile.designation || '',
+                        } as Student & { _staffDepartment: string; _staffDesignation: string };
+                    });
+                    setStaffList(mapped);
+                }
+            } catch (err: any) {
+                console.error("Failed to load ID Cards data:", err);
+                toast.error(`Failed to load data: ${err?.message || String(err)}`);
             }
         };
         fetchData();
