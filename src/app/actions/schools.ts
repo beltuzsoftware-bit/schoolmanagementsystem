@@ -594,7 +594,11 @@ export async function getSchoolAdmin(schoolId: string) {
             }
         }
 
-        if (user) return JSON.parse(JSON.stringify(user));
+        if (user) {
+            const cleanUser = JSON.parse(JSON.stringify(user));
+            cleanUser.name = (cleanUser.name || '').replace(/<[^>]*>/g, '').trim() || 'School Admin';
+            return cleanUser;
+        }
     } catch (e: any) {
         console.warn('[HYBRID] Prisma getSchoolAdmin failed:', e.message);
     }
@@ -608,7 +612,12 @@ export async function getSchoolAdmin(schoolId: string) {
         user = db.users.find((u: any) => u.email === adminEmail);
     }
 
-    return user ? JSON.parse(JSON.stringify(user)) : null;
+    if (user) {
+        const cleanUser = JSON.parse(JSON.stringify(user));
+        cleanUser.name = (cleanUser.name || '').replace(/<[^>]*>/g, '').trim() || 'School Admin';
+        return cleanUser;
+    }
+    return null;
 }
 
 export async function getImpersonatedUser(userId: string) {
@@ -619,7 +628,7 @@ export async function getImpersonatedUser(userId: string) {
         if (user) {
             return {
                 id: user.id,
-                name: user.name,
+                name: (user.name || '').replace(/<[^>]*>/g, '').trim() || 'School Admin',
                 email: user.email,
                 role: user.role,
                 schoolId: user.schoolId,
@@ -635,7 +644,7 @@ export async function getImpersonatedUser(userId: string) {
     if (u) {
         return {
             id: u.id,
-            name: u.name,
+            name: (u.name || '').replace(/<[^>]*>/g, '').trim() || 'School Admin',
             email: u.email,
             role: u.role,
             schoolId: u.schoolId,

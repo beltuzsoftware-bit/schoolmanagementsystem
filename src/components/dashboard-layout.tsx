@@ -147,7 +147,8 @@ export default function DashboardLayout({
     // In that case, show the original logged-in user (the impersonator) if one exists.
     const isSuperAdminPanel = userRole === 'Super Admin';
     const activeUser = isSuperAdminPanel ? (originalUser || currentUser) : currentUser;
-    const displayName = activeUser?.name || userName || (isSuperAdminPanel ? 'Super Admin' : 'Current User');
+    const rawName = activeUser?.name || userName || (isSuperAdminPanel ? 'Super Admin' : 'Current User');
+    const displayName = rawName.replace(/<[^>]*>/g, '').trim() || (isSuperAdminPanel ? 'Super Admin' : 'Current User');
     const displayRole = isSuperAdminPanel ? 'Super Admin' : (activeUser?.role || userRole).replace(/_/g, ' ');
     const displayAvatar = activeUser?.avatar || userAvatar;
 

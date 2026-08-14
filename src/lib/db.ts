@@ -193,7 +193,10 @@ export function readDb(): DatabaseSchema {
             ...INITIAL_DATA,
             ...parsed,
             // Ensure core arrays are preserved as they were in the parsed data if they exist
-            users: parsed.users ?? INITIAL_DATA.users,
+            users: (parsed.users ?? INITIAL_DATA.users).map(u => ({
+                ...u,
+                name: (u.name || '').replace(/<[^>]*>/g, '').trim() || 'School Admin'
+            })),
             schools: (parsed.schools ?? INITIAL_DATA.schools).map(s => {
                 const migrate = (arr: any[], type: 'discount' | 'reminder') => {
                     if (!arr) return [];
