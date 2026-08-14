@@ -611,6 +611,40 @@ export async function getSchoolAdmin(schoolId: string) {
     return user ? JSON.parse(JSON.stringify(user)) : null;
 }
 
+export async function getImpersonatedUser(userId: string) {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId }
+        });
+        if (user) {
+            return {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                schoolId: user.schoolId,
+                avatar: user.avatar && user.avatar.length < 500 ? user.avatar : '/kummi-icon.svg'
+            };
+        }
+    } catch (e: any) {
+        console.warn('[HYBRID] Prisma getImpersonatedUser failed:', e.message);
+    }
+
+    const db = readDb();
+    const u = db.users?.find((u: any) => u.id === userId || u.email === userId);
+    if (u) {
+        return {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            schoolId: u.schoolId,
+            avatar: u.avatar && u.avatar.length < 500 ? u.avatar : '/kummi-icon.svg'
+        };
+    }
+    return null;
+}
+
 export async function getSchoolAdmins(schoolId: string) {
     try {
         return await prisma.user.findMany({

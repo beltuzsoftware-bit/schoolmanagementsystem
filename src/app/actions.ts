@@ -43,6 +43,18 @@ import {
     computeSubscriptionStatus as computeStatus,
     migrateSchoolsToSubscriptions as migrate,
 } from '@/app/actions/subscriptions';
+import {
+    getSchoolAdmin as getAdmin,
+    getImpersonatedUser as getImpUser,
+} from '@/app/actions/schools';
+
+export async function getSchoolAdmin(schoolId: string) {
+    return getAdmin(schoolId);
+}
+
+export async function getImpersonatedUser(userId: string) {
+    return getImpUser(userId);
+}
 
 export async function getSchoolSubscription(schoolId: string) {
     return getSub(schoolId);
@@ -696,27 +708,7 @@ export async function manageSession(
 }
 
 
-export async function getSchoolAdmin(schoolId: string) {
-    try {
-        const user = await prisma.user.findFirst({
-            where: { 
-                schoolId: schoolId,
-                role: 'SCHOOL_ADMIN'
-            }
-        });
-        if (user) return user;
-    } catch (e: any) {
-        console.warn('[HYBRID] Prisma getSchoolAdmin failed:', e.message);
-    }
 
-    const db = readDb();
-    const school = db.schools.find(s => s.id === schoolId);
-    if (!school || !school.admins || school.admins.length === 0) return null;
-
-    const adminEmail = school.admins[0];
-    const user = db.users.find(u => u.email === adminEmail);
-    return user || null;
-}
 
 // --- USERS (AUTH) ---
 

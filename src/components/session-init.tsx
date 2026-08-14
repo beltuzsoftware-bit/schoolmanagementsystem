@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { getImpersonatedUser } from '@/app/actions';
 
 // Install the polyfill immediately in module scope on the client side
 if (typeof window !== 'undefined' && !(window as any).__kummi_session_polyfilled) {
@@ -33,35 +34,47 @@ function SessionInitContent() {
   useEffect(() => {
     const impersonate = searchParams.get('impersonate');
     if (impersonate) {
-      try {
-        const user = JSON.parse(decodeURIComponent(impersonate));
-        if (user) {
-          if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.length > 500)) {
-            user.avatar = '/kummi-icon.svg';
-          }
-          // Set in sessionStorage so it is tab-specific and isolated
-          sessionStorage.setItem('kummi_user', JSON.stringify(user));
-
-          // Set kummi_original_user to the original user from localStorage if it exists
-          const origUser = localStorage.getItem('kummi_original_user');
-          if (origUser) {
-            sessionStorage.setItem('kummi_original_user', origUser);
+      let isMounted = true;
+      const processImpersonation = async () => {
+        try {
+          let user: any = null;
+          const decoded = decodeURIComponent(impersonate);
+          if (decoded.startsWith('{')) {
+            user = JSON.parse(decoded);
+          } else {
+            user = await getImpersonatedUser(decoded);
           }
 
-          // Clean up query param from URL
-          const params = new URLSearchParams(searchParams.toString());
-          params.delete('impersonate');
-          const cleanUrl = pathname + (params.toString() ? `?${params.toString()}` : '');
+          if (user && isMounted) {
+            if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.length > 500)) {
+              user.avatar = '/kummi-icon.svg';
+            }
+            // Set in sessionStorage so it is tab-specific and isolated
+            sessionStorage.setItem('kummi_user', JSON.stringify(user));
 
-          // Dispatch profile-updated so that layout updates immediately
-          window.dispatchEvent(new Event('profile-updated'));
+            // Set kummi_original_user to the original user from localStorage if it exists
+            const origUser = localStorage.getItem('kummi_original_user');
+            if (origUser) {
+              sessionStorage.setItem('kummi_original_user', origUser);
+            }
 
-          // Replace the URL with the clean version
-          router.replace(cleanUrl);
+            // Clean up query param from URL
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('impersonate');
+            const cleanUrl = pathname + (params.toString() ? `?${params.toString()}` : '');
+
+            // Dispatch profile-updated so that layout updates immediately
+            window.dispatchEvent(new Event('profile-updated'));
+
+            // Replace the URL with the clean version
+            router.replace(cleanUrl);
+          }
+        } catch (e) {
+          console.error('Failed to process impersonation parameters', e);
         }
-      } catch (e) {
-        console.error('Failed to parse impersonation parameters', e);
-      }
+      };
+      processImpersonation();
+      return () => { isMounted = false; };
     }
   }, [searchParams, pathname, router]);
 
