@@ -54,22 +54,30 @@ export default function UserProfilePage() {
         try {
             const { updateUser } = await import('@/app/actions');
             const result = await updateUser(userForm.id, userForm);
-            if (result.success) {
+            if (result.success && result.user) {
                 toast.success('Your profile has been updated successfully!');
-                localStorage.setItem('kummi_user', JSON.stringify(userForm));
+                const updatedUser = {
+                    ...userForm,
+                    avatar: result.user.avatar || userForm.avatar
+                };
+                setUserForm(updatedUser);
+                localStorage.setItem('kummi_user', JSON.stringify(updatedUser));
+                sessionStorage.setItem('kummi_user', JSON.stringify(updatedUser));
                 
                 const origUser = localStorage.getItem('kummi_original_user');
                 if (origUser) {
                     try {
                         const parsedOrig = JSON.parse(origUser);
                         if (parsedOrig.id === userForm.id) {
-                            localStorage.setItem('kummi_original_user', JSON.stringify(userForm));
+                            localStorage.setItem('kummi_original_user', JSON.stringify(updatedUser));
+                            sessionStorage.setItem('kummi_original_user', JSON.stringify(updatedUser));
                         }
                     } catch (e) {
                         console.error(e);
                     }
                 } else {
-                    localStorage.setItem('kummi_original_user', JSON.stringify(userForm));
+                    localStorage.setItem('kummi_original_user', JSON.stringify(updatedUser));
+                    sessionStorage.setItem('kummi_original_user', JSON.stringify(updatedUser));
                 }
                 
                 // Notify other components (header avatar)

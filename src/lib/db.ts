@@ -346,6 +346,11 @@ export function writeDb(data: DatabaseSchema) {
             data.staffProfiles = extractBase64Field(data.staffProfiles, 'staff', 'photo', 'id', 'photo') as any;
         }
 
+        // Extract user avatars → data-images/users/
+        if (data.users && data.users.length > 0) {
+            data.users = extractBase64Field(data.users, 'users', 'avatar', 'id', 'avatar') as any;
+        }
+
         // Create a backup of the current file before overwriting
         if (fs.existsSync(DB_PATH)) {
             const backupPath = `${DB_PATH}.bak`;

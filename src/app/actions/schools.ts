@@ -648,7 +648,7 @@ export async function getImpersonatedUser(userId: string) {
             email: u.email,
             role: u.role,
             schoolId: u.schoolId,
-            avatar: u.avatar && u.avatar.length < 500 ? u.avatar : '/kummi-icon.svg'
+            avatar: u.avatar || '/kummi-icon.svg'
         };
     }
     return null;

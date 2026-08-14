@@ -177,19 +177,44 @@ export async function addUser(data: Partial<any>) {
 }
 
 export async function updateUser(id: string, data: Partial<any>) {
+    // 1. Write to JSON DB (which converts base64 avatar to persistent /api/images/users/... URL)
     const db = readDb();
     const index = db.users.findIndex(u => u.id === id);
-    if (index === -1) return { success: false, error: 'User not found' };
 
-    // If password is being updated, hash it
+    let hashedPassword = undefined;
     if (data.password) {
-        data.password = await hashPassword(data.password);
+        hashedPassword = await hashPassword(data.password);
+        data.password = hashedPassword;
     }
 
-    db.users[index] = { ...db.users[index], ...data };
-    writeDb(db);
+    if (index !== -1) {
+        db.users[index] = { ...db.users[index], ...data };
+        writeDb(db);
+    }
+
+    const updatedUser = index !== -1 ? db.users[index] : null;
+    const finalAvatar = updatedUser?.avatar || data.avatar;
+
+    // 2. Sync to Prisma DB if available
+    try {
+        const prismaUpdateData: any = {};
+        if (data.name) prismaUpdateData.name = data.name;
+        if (finalAvatar) prismaUpdateData.avatar = finalAvatar;
+        if (hashedPassword) prismaUpdateData.password = hashedPassword;
+
+        if (Object.keys(prismaUpdateData).length > 0) {
+            await prisma.user.update({
+                where: { id },
+                data: prismaUpdateData
+            });
+        }
+    } catch (e: any) {
+        console.warn('[HYBRID] Prisma updateUser failed:', e.message);
+    }
+
     revalidatePath('/school-admin/roles');
-    return { success: true, user: db.users[index] };
+    revalidatePath('/school-admin/user-profile');
+    return { success: true, user: updatedUser || data };
 }
 
 export async function deleteUser(id: string) {
