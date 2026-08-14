@@ -295,7 +295,15 @@ export default function SchoolsPage() {
         try {
             const adminUser = await getSchoolAdmin(schoolId);
             if (adminUser) {
-                const impersonateUrl = `/school-admin?impersonate=${encodeURIComponent(JSON.stringify(adminUser))}`;
+                const minimalUser = {
+                    id: adminUser.id,
+                    name: adminUser.name,
+                    email: adminUser.email,
+                    role: adminUser.role,
+                    schoolId: adminUser.schoolId,
+                    avatar: adminUser.avatar && adminUser.avatar.length < 500 ? adminUser.avatar : '/kummi-icon.svg'
+                };
+                const impersonateUrl = `/school-admin?impersonate=${encodeURIComponent(JSON.stringify(minimalUser))}`;
                 newTab.location.href = impersonateUrl;
                 toast.success(`Opening portal for ${adminUser.name} in a new tab`);
             } else {

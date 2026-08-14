@@ -36,6 +36,9 @@ function SessionInitContent() {
       try {
         const user = JSON.parse(decodeURIComponent(impersonate));
         if (user) {
+          if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.length > 500)) {
+            user.avatar = '/kummi-icon.svg';
+          }
           // Set in sessionStorage so it is tab-specific and isolated
           sessionStorage.setItem('kummi_user', JSON.stringify(user));
 

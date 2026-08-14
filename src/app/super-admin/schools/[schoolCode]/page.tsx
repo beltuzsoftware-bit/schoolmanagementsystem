@@ -40,6 +40,16 @@ export default async function SchoolLoginPage({ params }: Props) {
         redirect('/super-admin/schools?error=no-admin');
     }
 
-    const impersonateUrl = `/school-admin?impersonate=${encodeURIComponent(JSON.stringify(adminUser))}`;
+    const minimalUser = {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+        schoolId: adminUser.schoolId,
+        avatar: adminUser.avatar && adminUser.avatar.length < 500 ? adminUser.avatar : '/kummi-icon.svg'
+    };
+
+    const impersonateUrl = `/school-admin?impersonate=${encodeURIComponent(JSON.stringify(minimalUser))}`;
     redirect(impersonateUrl);
 }
+
