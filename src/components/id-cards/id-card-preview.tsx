@@ -14,26 +14,90 @@ interface IDCardPreviewProps {
     validityDate?: string;
 }
 
-/** Maps a template field key to the actual value on the student record. */
+/** Maps a template field key to the actual value on the student/staff record. */
 function resolveValue(student: Student, key: string): string {
-    if (key === "address" || key === "currentAddress")
-        return student.currentAddress || (student as any).address || "N/A";
-    if (key === "emergencyContact" || key === "phone")
-        return student.phone || student.fatherPhone || "N/A";
-    if (key === "className")
-        return [student.className, student.section].filter(Boolean).join(" - ") || "N/A";
-    
-    // Staff-specific key resolving
-    if (key === "designation")
-        return (student as any)._staffDesignation || (student as any).designation || student.className || "N/A";
-    if (key === "department")
-        return (student as any)._staffDepartment || (student as any).department || student.section || "N/A";
-    if (key === "staffId")
-        return (student as any).staffId || student.admissionNumber || "N/A";
-    if (key === "joiningDate")
-        return (student as any).joiningDate || "N/A";
+    // ── Address / Contact ────────────────────────────────────────────────────
+    if (key === 'address' || key === 'currentAddress')
+        return student.currentAddress || (student as any).address || (student as any)._staffAddress || 'N/A';
+    if (key === 'emergencyContact' || key === 'phone')
+        return student.phone || student.fatherPhone || (student as any)._staffPhone || 'N/A';
+    if (key === 'altPhone')
+        return (student as any).altPhone || (student as any)._staffAltPhone || 'N/A';
+    if (key === 'city')
+        return student.city || (student as any)._staffCity || 'N/A';
+    if (key === 'state')
+        return student.state || (student as any)._staffState || 'N/A';
+    if (key === 'pincode')
+        return student.pincode || (student as any)._staffPincode || 'N/A';
+    if (key === 'village')
+        return student.village || 'N/A';
+    if (key === 'district')
+        return student.district || 'N/A';
 
-    return (student as any)[key] || "N/A";
+    // ── Class/Section ────────────────────────────────────────────────────────
+    if (key === 'className')
+        return [student.className, student.section].filter(Boolean).join(' - ') || 'N/A';
+
+    // ── Staff-specific field resolving ───────────────────────────────────────
+    if (key === 'designation')
+        return (student as any)._staffDesignation || (student as any).designation || student.className || 'N/A';
+    if (key === 'department')
+        return (student as any)._staffDepartment || (student as any).department || student.section || 'N/A';
+    if (key === 'staffId')
+        return (student as any).staffId || student.admissionNumber || 'N/A';
+    if (key === 'joiningDate')
+        return (student as any).joiningDate || (student as any)._staffJoiningDate || 'N/A';
+    if (key === 'qualification')
+        return (student as any).qualification || (student as any)._staffQualification || 'N/A';
+    if (key === 'aadhar')
+        return (student as any).aadhar || (student as any)._staffAadhar || 'N/A';
+
+    // ── Blood group (student direct / staff mapped) ──────────────────────────
+    if (key === 'bloodGroup')
+        return student.bloodGroup || (student as any)._staffBloodGroup || 'N/A';
+
+    // ── Admission fields ─────────────────────────────────────────────────────
+    if (key === 'admissionDate')
+        return student.admissionDate || 'N/A';
+    if (key === 'registrationNo')
+        return student.registrationNo || 'N/A';
+    if (key === 'enrollmentNo')
+        return student.enrollmentNo || 'N/A';
+    if (key === 'apaarId')
+        return student.apaarId || 'N/A';
+    if (key === 'penNo')
+        return student.penNo || 'N/A';
+    if (key === 'srNo')
+        return student.srNo || 'N/A';
+    if (key === 'stream')
+        return student.stream || 'N/A';
+
+    // ── Parent / Guardian ────────────────────────────────────────────────────
+    if (key === 'fatherPhone')
+        return student.fatherPhone || 'N/A';
+    if (key === 'fatherOccupation')
+        return student.fatherOccupation || 'N/A';
+    if (key === 'motherPhone')
+        return student.motherPhone || 'N/A';
+    if (key === 'guardianName')
+        return student.guardianName || 'N/A';
+    if (key === 'guardianPhone')
+        return student.guardianPhone || 'N/A';
+
+    // ── Identity ─────────────────────────────────────────────────────────────
+    if (key === 'nationality')
+        return student.nationality || (student as any)._staffNationality || 'N/A';
+    if (key === 'religion')
+        return student.religion || (student as any)._staffReligion || 'N/A';
+    if (key === 'category')
+        return student.category || (student as any)._staffCategory || 'N/A';
+    if (key === 'caste')
+        return student.caste || 'N/A';
+    if (key === 'aadhaarNo')
+        return student.aadhaarNo || 'N/A';
+
+    // ── Fallback: direct key lookup ──────────────────────────────────────────
+    return (student as any)[key] || 'N/A';
 }
 
 function cardRadiusCss(r?: string) {

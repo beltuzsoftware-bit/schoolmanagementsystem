@@ -1362,76 +1362,67 @@ export default function CanvasEditor({
                 <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {template.createdFor === 'staff' ? 'Staff' : 'Student'} Data Fields
                 </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 'calc(100vh - 420px)', overflowY: 'auto', paddingRight: 4 }}>
-                  {(template.createdFor === 'staff' ? STAFF_FIELDS : STUDENT_FIELDS).map(f => (
-                    <div
-                      key={f.key}
-                      style={{
-                        background: '#1e293b',
-                        borderRadius: 6,
-                        padding: '6px 8px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        border: '1px solid #334155',
-                      }}
-                    >
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#f1f5f9' }}>{f.label}</span>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => addLabelField(f.key, f.label)}
-                          title="Add a combined row: Label + Value in one element"
-                          style={{
-                            flex: 1,
-                            padding: '4px 4px',
-                            fontSize: 9,
-                            fontWeight: 700,
-                            background: '#059669',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            minWidth: 0,
-                          }}
-                        >
-                          🔗 Row
-                        </button>
-                        <button
-                          onClick={() => addField(f.key, f.label)}
-                          title="Add value only (no label)"
-                          style={{
-                            flex: 1,
-                            padding: '4px 4px',
-                            fontSize: 9,
-                            fontWeight: 700,
-                            background: '#ea580c',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            minWidth: 0,
-                          }}
-                        >
-                          📄 Value
-                        </button>
-                        <button
-                          onClick={() => addSplitField(f.key, f.label)}
-                          title="Add label and value as two separate independent elements"
-                          style={{
-                            flex: 1,
-                            padding: '4px 4px',
-                            fontSize: 9,
-                            fontWeight: 700,
-                            background: '#7c3aed',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            minWidth: 0,
-                          }}
-                        >
-                          ✂️ Split
-                        </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 'calc(100vh - 420px)', overflowY: 'auto', paddingRight: 4 }}>
+                  {/* Group fields by category */}
+                  {Object.entries(
+                    (template.createdFor === 'staff' ? STAFF_FIELDS : STUDENT_FIELDS).reduce(
+                      (acc, f) => { const g = (f as any).group || 'Other'; (acc[g] = acc[g] || []).push(f); return acc; },
+                      {} as Record<string, typeof STUDENT_FIELDS>
+                    )
+                  ).map(([groupName, fields]) => (
+                    <div key={groupName}>
+                      <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, paddingBottom: 3, borderBottom: '1px solid #1e293b' }}>
+                        {groupName}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {fields.map(f => (
+                          <div
+                            key={f.key}
+                            style={{
+                              background: '#1e293b',
+                              borderRadius: 6,
+                              padding: '5px 8px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 4,
+                              border: '1px solid #334155',
+                            }}
+                          >
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#f1f5f9' }}>{f.label}</span>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => addLabelField(f.key, f.label)}
+                                title="Add a combined row: Label + Value in one element"
+                                style={{
+                                  flex: 1, padding: '4px 4px', fontSize: 9, fontWeight: 700,
+                                  background: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', minWidth: 0,
+                                }}
+                              >
+                                🔗 Row
+                              </button>
+                              <button
+                                onClick={() => addField(f.key, f.label)}
+                                title="Add value only (no label)"
+                                style={{
+                                  flex: 1, padding: '4px 4px', fontSize: 9, fontWeight: 700,
+                                  background: '#ea580c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', minWidth: 0,
+                                }}
+                              >
+                                📄 Value
+                              </button>
+                              <button
+                                onClick={() => addSplitField(f.key, f.label)}
+                                title="Add label and value as two separate independent elements"
+                                style={{
+                                  flex: 1, padding: '4px 4px', fontSize: 9, fontWeight: 700,
+                                  background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', minWidth: 0,
+                                }}
+                              >
+                                ✂️ Split
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -1468,11 +1459,12 @@ export default function CanvasEditor({
                   {(selectedEl.type === 'field' || selectedEl.type === 'labelfield') && (
                     <>
                       <div style={fieldGroup}>
-                        <label style={labelStyle}>Student Database Value</label>
+                        <label style={labelStyle}>{template.createdFor === 'staff' ? 'Staff' : 'Student'} Database Value</label>
                         <select
                           value={selectedEl.fieldKey ?? ''}
                           onChange={e => {
-                            const f = STUDENT_FIELDS.find(sf => sf.key === e.target.value);
+                            const allFields = template.createdFor === 'staff' ? STAFF_FIELDS : STUDENT_FIELDS;
+                            const f = allFields.find(sf => sf.key === e.target.value);
                             if (f) {
                               update(selectedEl.id, {
                                 fieldKey: f.key,
@@ -1483,7 +1475,7 @@ export default function CanvasEditor({
                           }}
                           style={inputStyle}
                         >
-                          {STUDENT_FIELDS.map(f => (
+                          {(template.createdFor === 'staff' ? STAFF_FIELDS : STUDENT_FIELDS).map(f => (
                             <option key={f.key} value={f.key}>{f.label}</option>
                           ))}
                         </select>

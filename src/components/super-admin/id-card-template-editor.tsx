@@ -23,37 +23,33 @@ interface EditorProps {
 }
 
 // ---------- Preview dummy data ----------
-const PREVIEW_STUDENT = {
-    name: 'Aarav Sharma',
-    className: 'Class 10 - A',
-    rollNumber: '1023',
-    dob: '12-05-2008',
-    bloodGroup: 'B+',
-    admissionNumber: 'ADM-2024-001',
-    phone: '+91 9876543210',
-    currentAddress: '123, Green Park, New Delhi',
+const PREVIEW_STUDENT: Record<string, string> = {
+    name: 'Aarav Sharma', className: 'Class 10 - A', rollNumber: '1023',
+    dob: '12-05-2008', bloodGroup: 'B+', admissionNumber: 'ADM-2024-001',
+    admissionDate: '01-04-2021', registrationNo: 'REG-2021-045', enrollmentNo: 'ENR-10-2024',
+    apaarId: 'AP1234567890', penNo: 'PEN9876543', srNo: 'SR-001', stream: 'Science',
+    phone: '+91 9876543210', currentAddress: '123, Green Park, New Delhi',
+    village: 'Green Park', district: 'New Delhi', state: 'Delhi', pincode: '110016',
     photo: 'https://github.com/shadcn.png',
-    fatherName: 'Rajesh Sharma',
-    motherName: 'Sunita Sharma',
-    gender: 'Male',
-    house: 'Tagore House',
+    fatherName: 'Rajesh Sharma', fatherPhone: '+91 98100 12345', fatherOccupation: 'Engineer',
+    motherName: 'Sunita Sharma', motherPhone: '+91 98200 56789',
+    guardianName: 'Rajesh Sharma', guardianPhone: '+91 98100 12345',
+    gender: 'Male', house: 'Tagore House',
+    nationality: 'Indian', religion: 'Hindu', category: 'General', caste: 'Sharma', aadhaarNo: 'XXXX-XXXX-1234',
     validityDate: '31-03-2027',
 };
 
-const PREVIEW_STAFF = {
-    name: 'Abdur Rahaman Mondal',
-    designation: 'Accountant',
-    department: 'Academic',
-    staffId: 'HMS02190024',
-    dob: '18-06-1985',
-    bloodGroup: 'O+',
-    phone: '+91 98765 43210',
+const PREVIEW_STAFF: Record<string, string> = {
+    name: 'Abdur Rahaman Mondal', designation: 'Accountant', department: 'Academic',
+    staffId: 'HMS02190024', joiningDate: '01-11-2018',
+    dob: '18-06-1985', bloodGroup: 'O+',
+    phone: '+91 98765 43210', altPhone: '+91 97000 11223',
     currentAddress: 'North 24 Parganas, West Bengal, India',
+    city: 'Barasat', state: 'West Bengal', pincode: '700124',
     photo: 'https://github.com/shadcn.png',
-    fatherName: 'Abdul Jalil Mondal',
-    motherName: 'Aliya Mondal',
-    gender: 'Male',
-    joiningDate: '01-11-2018',
+    fatherName: 'Abdul Jalil Mondal', motherName: 'Aliya Mondal',
+    gender: 'Male', nationality: 'Indian', religion: 'Islam',
+    category: 'OBC', qualification: 'M.Com', aadhar: 'XXXX-XXXX-5678',
     validityDate: '31-03-2027',
 };
 
@@ -66,15 +62,36 @@ const PRESET_GRADIENTS = [
     { name: 'Dark Midnight', value: 'linear-gradient(135deg,#1e293b 0%,#334155 100%)' },
 ];
 
-const STUDENT_FIELD_KEYS = [
-    'name','className','rollNumber','admissionNumber','dob','bloodGroup',
-    'currentAddress','phone','fatherName','motherName','gender','house','validityDate',
+const STUDENT_FIELD_GROUPS: { group: string; keys: string[] }[] = [
+    { group: 'Basic',     keys: ['name','className','rollNumber','gender','dob','bloodGroup','house','validityDate'] },
+    { group: 'Admission', keys: ['admissionNumber','admissionDate','registrationNo','enrollmentNo','apaarId','penNo','srNo','stream'] },
+    { group: 'Contact',   keys: ['phone','currentAddress','village','district','state','pincode'] },
+    { group: 'Parent',    keys: ['fatherName','fatherPhone','fatherOccupation','motherName','motherPhone','guardianName','guardianPhone'] },
+    { group: 'Identity',  keys: ['nationality','religion','category','caste','aadhaarNo'] },
 ];
 
-const STAFF_FIELD_KEYS = [
-    'name','designation','department','staffId','dob','bloodGroup',
-    'currentAddress','phone','fatherName','motherName','gender','joiningDate','validityDate',
+const STAFF_FIELD_GROUPS: { group: string; keys: string[] }[] = [
+    { group: 'Basic',    keys: ['name','designation','department','staffId','joiningDate','dob','gender','bloodGroup','validityDate'] },
+    { group: 'Contact',  keys: ['phone','altPhone','currentAddress','city','state','pincode'] },
+    { group: 'Personal', keys: ['fatherName','motherName','nationality','religion','category','qualification','aadhar'] },
 ];
+
+// Flat label lookup built from canvas-engine field definitions
+const FIELD_LABEL_MAP: Record<string, string> = {
+    name:'Student/Staff Name', className:'Class & Section', rollNumber:'Roll No.', gender:'Gender',
+    dob:'Date of Birth', bloodGroup:'Blood Group', house:'House', validityDate:'Valid Up To',
+    admissionNumber:'Admission No.', admissionDate:'Admission Date', registrationNo:'Registration No.',
+    enrollmentNo:'Enrollment No.', apaarId:'APAAR ID', penNo:'PEN No.', srNo:'SR No.', stream:'Stream',
+    phone:'Phone', altPhone:'Alt. Phone', currentAddress:'Address', village:'Village/Locality',
+    district:'District', state:'State', pincode:'Pincode', city:'City',
+    fatherName:"Father's Name", fatherPhone:"Father's Phone", fatherOccupation:"Father's Occupation",
+    motherName:"Mother's Name", motherPhone:"Mother's Phone",
+    guardianName:'Guardian Name', guardianPhone:'Guardian Phone',
+    nationality:'Nationality', religion:'Religion', category:'Category', caste:'Caste',
+    aadhaarNo:'Aadhaar No.', aadhar:'Aadhaar No.',
+    designation:'Designation', department:'Department', staffId:'Employee ID',
+    joiningDate:'Joining Date', qualification:'Qualification',
+};
 
 // ---------- Inline shape picker mini-component ----------
 function ShapePicker({
@@ -495,19 +512,27 @@ export default function IDCardTemplateEditor({ template: initialTemplate, onSave
                             <ToggleRow label={`Show ${template.createdFor === 'staff' ? 'Staff' : 'Student'} QR Code`} sub={`Unique QR code encoding ${template.createdFor === 'staff' ? 'staff ID' : 'student admission ID'}`}
                                 checked={template.showQRCode ?? false} onChange={c => set('showQRCode', c)} />
 
-                            {/* Field selector grid */}
+                            {/* Field selector — grouped by category */}
                             <Field label={`Active ${template.createdFor === 'staff' ? 'Staff' : 'Student'} Fields`}>
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    {(template.createdFor === 'staff' ? STAFF_FIELD_KEYS : STUDENT_FIELD_KEYS).map(key => {
-                                        const selected = template.fields.some(f => f.key === key);
-                                        return (
-                                            <button key={key} type="button" onClick={() => toggleField(key)}
-                                                className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold text-center cursor-pointer transition-all
-                                                    ${selected ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
-                                                {key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="space-y-3">
+                                    {(template.createdFor === 'staff' ? STAFF_FIELD_GROUPS : STUDENT_FIELD_GROUPS).map(({ group, keys }) => (
+                                        <div key={group}>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">{group}</p>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                {keys.map(key => {
+                                                    const selected = template.fields.some(f => f.key === key);
+                                                    return (
+                                                        <button key={key} type="button" onClick={() => toggleField(key)}
+                                                            title={FIELD_LABEL_MAP[key] || key}
+                                                            className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold text-center cursor-pointer transition-all leading-tight
+                                                                ${selected ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}>
+                                                            {FIELD_LABEL_MAP[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </Field>
 

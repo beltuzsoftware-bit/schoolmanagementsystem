@@ -255,6 +255,7 @@ function IDCardsPageContent() {
                     (data.users as any[]).forEach((u: any) => usersMap.set(u.id, u));
                     const mapped: Student[] = (data.staffProfiles as any[]).map((profile: any) => {
                         const user = usersMap.get(profile.userId) || {};
+                        const pd = profile.personalDetails || {};
                         return {
                             id: profile.id,
                             schoolId: userSchoolId,
@@ -265,19 +266,46 @@ function IDCardsPageContent() {
                             rollNumber: '',
                             className: profile.designation || '',
                             section: profile.department || '',
-                            phone: profile.personalDetails?.phone || '',
-                            currentAddress: profile.personalDetails?.address || '',
-                            bloodGroup: profile.personalDetails?.bloodGroup || '',
-                            dob: profile.personalDetails?.dob || '',
-                            gender: profile.personalDetails?.gender || '',
-                            fatherName: profile.personalDetails?.fatherName || '',
-                            motherName: profile.personalDetails?.motherName || '',
+                            // Core personal info (mapped from personalDetails)
+                            phone: pd.phone || '',
+                            currentAddress: pd.address || '',
+                            bloodGroup: pd.bloodGroup || '',
+                            dob: pd.dob || '',
+                            gender: pd.gender || '',
+                            fatherName: pd.fatherName || '',
+                            motherName: pd.motherName || '',
                             photo: user.photo || profile.photo || '',
                             status: (profile.status === 'Active' ? 'Active' : 'Inactive') as any,
                             currentSessionId: '',
+                            // Staff-specific mapped fields (used by resolveValue with _ prefix)
+                            staffId: profile.staffId || '',
+                            joiningDate: profile.joiningDate || '',
                             _staffDepartment: profile.department || '',
                             _staffDesignation: profile.designation || '',
-                        } as Student & { _staffDepartment: string; _staffDesignation: string };
+                            _staffBloodGroup: pd.bloodGroup || '',
+                            _staffAddress: pd.address || '',
+                            _staffPhone: pd.phone || '',
+                            _staffAltPhone: pd.altPhone || '',
+                            _staffCity: pd.city || '',
+                            _staffState: pd.state || '',
+                            _staffPincode: pd.pincode || '',
+                            _staffNationality: pd.nationality || '',
+                            _staffReligion: pd.religion || '',
+                            _staffCategory: pd.category || '',
+                            _staffQualification: pd.qualification || (profile.qualifications?.[0]?.name ?? ''),
+                            _staffAadhar: pd.aadhar || '',
+                            _staffJoiningDate: profile.joiningDate || '',
+                            // Also expose these as flat keys (for direct resolveValue fallback)
+                            altPhone: pd.altPhone || '',
+                            city: pd.city || '',
+                            state: pd.state || '',
+                            pincode: pd.pincode || '',
+                            nationality: pd.nationality || '',
+                            religion: pd.religion || '',
+                            category: pd.category || '',
+                            aadhar: pd.aadhar || '',
+                            qualification: pd.qualification || (profile.qualifications?.[0]?.name ?? ''),
+                        } as Student & Record<string, any>;
                     });
                     setStaffList(mapped);
                 }
@@ -306,7 +334,9 @@ function IDCardsPageContent() {
 
     const handleSave = async (updatedTemplate: IDCardTemplate) => {
         try {
-            if (isCreating) {
+            // Treat id='new' or missing id as a create, regardless of isCreating state
+            const isNew = isCreating || !updatedTemplate.id || updatedTemplate.id === 'new';
+            if (isNew) {
                 const res = await addIDCardTemplate({
                     ...updatedTemplate,
                     schoolId: school?.id || undefined,

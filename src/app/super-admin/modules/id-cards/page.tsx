@@ -37,7 +37,9 @@ export default function IDCardsPage() {
 
     const handleSave = async (updatedTemplate: IDCardTemplate) => {
         try {
-            if (isCreating) {
+            // Treat id='new' or missing id as a create, regardless of isCreating state
+            const isNew = isCreating || !updatedTemplate.id || updatedTemplate.id === 'new';
+            if (isNew) {
                 const res = await addIDCardTemplate(updatedTemplate);
                 if (res.success && res.template) {
                     setTemplates([...templates, res.template]);

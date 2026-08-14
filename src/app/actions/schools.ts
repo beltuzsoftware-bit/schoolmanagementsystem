@@ -22,6 +22,13 @@ import {
     INITIAL_ROLL_SETTINGS 
 } from '@/lib/student-constants';
 
+// --- SECURITY: HTML Sanitizer ---
+// Strips all HTML/script tags from plain-text fields to prevent stored XSS.
+function stripHtml(value: unknown): string {
+    if (typeof value !== 'string') return value as any;
+    return value.replace(/<[^>]*>/g, '').trim();
+}
+
 // --- PACKAGES ---
 
 export async function getPackages() {
@@ -309,6 +316,14 @@ export async function updateSchool(id: string, data: Partial<School>, adminPassw
                 return { success: false, error: 'A school with this ID already exists' };
             }
         }
+
+        // Sanitize plain-text fields to strip any injected HTML/script tags
+        const TEXT_FIELDS: Array<keyof School> = ['name', 'tagline', 'email', 'contactNumber', 'address', 'website', 'contactPerson', 'schoolId'];
+        TEXT_FIELDS.forEach(f => {
+            if (f in data && typeof (data as any)[f] === 'string') {
+                (data as any)[f] = stripHtml((data as any)[f]);
+            }
+        });
 
         const { 
             sessions, id: _id, studentCount, ads, admins, 

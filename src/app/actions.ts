@@ -452,6 +452,14 @@ export async function updateSchool(id: string, data: Partial<School>, adminPassw
             }
         }
 
+        // Sanitize plain-text fields to strip any injected HTML/script tags
+        const TEXT_FIELDS_A: Array<keyof School> = ['name', 'tagline', 'email', 'contactNumber', 'address', 'website', 'contactPerson', 'schoolId'];
+        TEXT_FIELDS_A.forEach(f => {
+            if (f in data && typeof (data as any)[f] === 'string') {
+                (data as any)[f] = (data as any)[f].replace(/<[^>]*>/g, '').trim();
+            }
+        });
+
         const { 
             sessions, id: _id, studentCount, ads, admins, 
             _count, updatedAt, createdAt, users, students, 
