@@ -568,24 +568,47 @@ export async function toggleSchoolStatus(schoolId: string, isActive: boolean) {
 
 export async function getSchoolAdmin(schoolId: string) {
     try {
-        const user = await prisma.user.findFirst({
+        let user = await prisma.user.findFirst({
             where: { 
                 schoolId: schoolId,
                 role: 'SCHOOL_ADMIN'
             }
         });
-        if (user) return user;
+
+        if (!user) {
+            const school = await prisma.school.findFirst({
+                where: {
+                    OR: [
+                        { id: schoolId },
+                        { schoolId: schoolId }
+                    ]
+                }
+            });
+            if (school) {
+                user = await prisma.user.findFirst({
+                    where: {
+                        schoolId: school.id,
+                        role: 'SCHOOL_ADMIN'
+                    }
+                });
+            }
+        }
+
+        if (user) return JSON.parse(JSON.stringify(user));
     } catch (e: any) {
         console.warn('[HYBRID] Prisma getSchoolAdmin failed:', e.message);
     }
 
     const db = readDb();
-    const school = db.schools.find(s => s.id === schoolId);
-    if (!school || !school.admins || school.admins.length === 0) return null;
+    const school = db.schools.find((s: any) => s.id === schoolId || s.schoolId === schoolId);
+    let user = db.users.find((u: any) => (u.schoolId === schoolId || (school && u.schoolId === school.id)) && u.role === 'SCHOOL_ADMIN');
 
-    const adminEmail = school.admins[0];
-    const user = db.users.find(u => u.email === adminEmail);
-    return user || null;
+    if (!user && school && school.admins && school.admins.length > 0) {
+        const adminEmail = school.admins[0];
+        user = db.users.find((u: any) => u.email === adminEmail);
+    }
+
+    return user ? JSON.parse(JSON.stringify(user)) : null;
 }
 
 export async function getSchoolAdmins(schoolId: string) {
