@@ -230,6 +230,8 @@ export function readDb(): DatabaseSchema {
 
                 return {
                     ...s,
+                    name: (s.name || '').replace(/<[^>]*>/g, '').trim(),
+                    tagline: (s.tagline || '').replace(/<[^>]*>/g, '').trim(),
                     feeTypes: s.feeTypes || [],
                     feeDiscounts: migrate(s.feeDiscounts || [], 'discount'),
                     feeReminders: migrate(s.feeReminders || [], 'reminder')
@@ -237,7 +239,13 @@ export function readDb(): DatabaseSchema {
             }),
             packages: parsed.packages ?? INITIAL_DATA.packages,
             modules: parsed.modules ?? INITIAL_DATA.modules,
-            staffProfiles: parsed.staffProfiles ?? INITIAL_DATA.staffProfiles,
+            staffProfiles: ((parsed.staffProfiles ?? INITIAL_DATA.staffProfiles) as StaffProfile[]).map(sp => {
+                let photo = sp.photo;
+                if (photo && photo.startsWith('/images/staff/')) {
+                    photo = photo.replace('/images/staff/', '/api/images/staff/');
+                }
+                return { ...sp, photo };
+            }),
             attendance: parsed.attendance ?? INITIAL_DATA.attendance,
             idCardTemplates: (parsed.idCardTemplates && parsed.idCardTemplates.length > 0) ? parsed.idCardTemplates : INITIAL_DATA.idCardTemplates,
             students: parsed.students ?? INITIAL_DATA.students,

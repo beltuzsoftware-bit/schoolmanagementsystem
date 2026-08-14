@@ -20,7 +20,29 @@ export async function GET(
         const fullPath = path.resolve(DATA_IMAGES_DIR, safe);
 
         if (!fs.existsSync(fullPath)) {
-            return new NextResponse(null, { status: 404 });
+            // Self-healing fallback: search public/images/ and copy to DATA_IMAGES_DIR
+            const filename = path.basename(safe);
+            const candidates = [
+                path.resolve(process.cwd(), 'public/images', safe),
+                path.resolve(process.cwd(), '.next/standalone/public/images', safe),
+            ];
+
+            let foundFile: string | null = null;
+            for (const cand of candidates) {
+                if (fs.existsSync(cand)) {
+                    foundFile = cand;
+                    break;
+                }
+            }
+
+            if (foundFile) {
+                // Auto-persist to DATA_IMAGES_DIR so it survives future container redeploys
+                const parentDir = path.dirname(fullPath);
+                if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+                fs.copyFileSync(foundFile, fullPath);
+            } else {
+                return new NextResponse(null, { status: 404 });
+            }
         }
 
         const buffer = fs.readFileSync(fullPath);
@@ -42,3 +64,4 @@ export async function GET(
         return new NextResponse(null, { status: 500 });
     }
 }
+
