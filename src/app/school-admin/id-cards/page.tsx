@@ -69,6 +69,7 @@ function IDCardsPageContent() {
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [studentsToZip, setStudentsToZip] = useState<Student[]>([]);
     const [validityDate, setValidityDate] = useState<string>("");
+    const [printLayoutMode, setPrintLayoutMode] = useState<'sheet10' | 'grid2'>('sheet10');
 
     // Staff States
     const [staffList, setStaffList] = useState<Student[]>([]); // mapped to Student shape
@@ -1376,6 +1377,18 @@ function IDCardsPageContent() {
                                 </Select>
                             </div>
 
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Print Sheet Format</label>
+                                <Select value={printLayoutMode} onValueChange={(val: any) => setPrintLayoutMode(val)}>
+                                    <SelectTrigger className="bg-white">
+                                        <SelectValue placeholder="Print Sheet Format" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="sheet10">10 Cards / Sheet (5×2 Grid - Landscape)</SelectItem>
+                                        <SelectItem value="grid2">2 Cards / Row (Portrait)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                             <Button 
                                 className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
@@ -1884,20 +1897,39 @@ function IDCardsPageContent() {
                     pointerEvents: 'none',
                 }}
             >
-                {studentsToPrint.map(student => {
+                {(() => {
                     const tpl = templates.find(t => t.id === (generateTemplate || selectedTemplate)) || templates[0];
-                    return (
-                        <div key={student.id} className="print-card-wrapper">
-                            <IDCardPreview
-                                student={student}
-                                template={tpl}
-                                school={school}
-                                scale={4}
-                                validityDate={validityDate}
-                            />
+                    const isHorizontal = tpl?.layout === 'horizontal';
+                    const chunkSize = printLayoutMode === 'sheet10' ? 10 : 100;
+                    
+                    const pages: Student[][] = [];
+                    for (let i = 0; i < studentsToPrint.length; i += chunkSize) {
+                        pages.push(studentsToPrint.slice(i, i + chunkSize));
+                    }
+
+                    return pages.map((pageStudents, pageIdx) => (
+                        <div
+                            key={pageIdx}
+                            className={
+                                printLayoutMode === 'sheet10' 
+                                    ? (isHorizontal ? "print-sheet-horizontal" : "print-sheet-vertical")
+                                    : "print-sheet-classic"
+                            }
+                        >
+                            {pageStudents.map(student => (
+                                <div key={student.id} className="print-card-wrapper">
+                                    <IDCardPreview
+                                        student={student}
+                                        template={tpl}
+                                        school={school}
+                                        scale={printLayoutMode === 'sheet10' && isHorizontal ? 2.6 : 4}
+                                        validityDate={validityDate}
+                                    />
+                                </div>
+                            ))}
                         </div>
-                    );
-                })}
+                    ));
+                })()}
             </div>
 
             {/* Print styles.
@@ -1908,12 +1940,14 @@ function IDCardsPageContent() {
             <style>{`
                 @media print {
                     @page {
+                        size: ${printLayoutMode === 'sheet10' ? 'A4 landscape' : 'A4 portrait'};
                         margin: 4mm;
                     }
                     html, body {
                         margin: 0 !important;
                         padding: 0 !important;
                         height: auto !important;
+                        background: white !important;
                     }
                     body * {
                         visibility: hidden !important;
@@ -1934,15 +1968,51 @@ function IDCardsPageContent() {
                         z-index: 99999 !important;
                         width: 100% !important;
                         height: auto !important;
+                        display: block !important;
+                        background: white !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        box-sizing: border-box !important;
+                    }
+                    .print-sheet-vertical {
+                        display: grid !important;
+                        grid-template-columns: repeat(5, max-content) !important;
+                        justify-content: center !important;
+                        align-content: start !important;
+                        gap: 2mm 3mm !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                        padding: 2mm 0 !important;
+                    }
+                    .print-sheet-horizontal {
+                        display: grid !important;
+                        grid-template-columns: repeat(5, max-content) !important;
+                        justify-content: center !important;
+                        align-content: start !important;
+                        gap: 3mm 3mm !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                        padding: 2mm 0 !important;
+                    }
+                    .print-sheet-horizontal .print-card {
+                        width: 55mm !important;
+                        height: 35mm !important;
+                    }
+                    .print-sheet-classic {
                         display: grid !important;
                         grid-template-columns: repeat(2, max-content) !important;
                         justify-content: center !important;
                         align-content: start !important;
                         gap: 2mm !important;
-                        background: white !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        box-sizing: border-box !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                        padding: 2mm 0 !important;
+                    }
+                    .print-sheet-vertical:last-child,
+                    .print-sheet-horizontal:last-child,
+                    .print-sheet-classic:last-child {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
                     }
                     .print-card-wrapper {
                         page-break-inside: avoid !important;
