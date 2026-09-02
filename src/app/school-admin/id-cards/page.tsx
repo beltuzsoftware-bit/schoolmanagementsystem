@@ -170,6 +170,38 @@ function IDCardsPageContent() {
         }
     }, [templates, school?.id, selectedTemplate, generateTemplate]);
 
+    const getIDCardsPDFTitle = (
+        list: Student[],
+        mode: string = generateMode
+    ): string => {
+        const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+        const isStaff = mode === 'staff';
+
+        if (list.length === 1) {
+            const item = list[0];
+            const name = sanitize(item.name || (isStaff ? 'Staff' : 'Student'));
+            if (isStaff) {
+                const staffId = item.admissionNumber || (item as any).staffId ? `_${sanitize(item.admissionNumber || (item as any).staffId)}` : '';
+                const department = (item as any)._staffDepartment ? `_${sanitize((item as any)._staffDepartment)}` : '';
+                return `Staff_ID_Card_${name}${department}${staffId}`;
+            } else {
+                const classInfo = item.className ? `_${sanitize(item.className)}${item.section ? sanitize(item.section) : ''}` : '';
+                const admNo = item.admissionNumber ? `_${sanitize(item.admissionNumber)}` : '';
+                return `Student_ID_Card_${name}${classInfo}${admNo}`;
+            }
+        }
+
+        if (isStaff) {
+            const deptPart = selectedDepartment && selectedDepartment !== 'all' ? `${sanitize(selectedDepartment)}_` : '';
+            const desigPart = selectedDesignation && selectedDesignation !== 'all' ? `${sanitize(selectedDesignation)}_` : '';
+            return `Staff_ID_Cards_${deptPart}${desigPart}${list.length}_Members`;
+        } else {
+            const classPart = selectedClass && selectedClass !== 'all' ? `Class_${sanitize(selectedClass)}_` : '';
+            const secPart = selectedSection && selectedSection !== 'all' ? `Sec_${sanitize(selectedSection)}_` : '';
+            return `Student_ID_Cards_${classPart}${secPart}${list.length}_Students`;
+        }
+    };
+
     useEffect(() => {
         if (studentsToPrint.length > 0) {
             // Guard against double-print (image-load path + fallback timer both firing)
@@ -178,10 +210,25 @@ function IDCardsPageContent() {
             const triggerPrint = () => {
                 if (printed) return;
                 printed = true;
+
+                const originalTitle = document.title;
+                const pdfTitle = getIDCardsPDFTitle(studentsToPrint, generateMode);
+                document.title = pdfTitle;
+
                 // Two rAF calls ensure layout is fully flushed before the dialog opens
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
                         window.print();
+
+                        const restore = () => {
+                            document.title = originalTitle;
+                            window.removeEventListener('afterprint', restore);
+                        };
+                        window.addEventListener('afterprint', restore);
+                        setTimeout(() => {
+                            document.title = originalTitle;
+                        }, 3000);
+
                         setStudentsToPrint([]);
                     });
                 });
@@ -938,7 +985,9 @@ function IDCardsPageContent() {
                 const url = URL.createObjectURL(zipBlob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `IDCards_${new Date().toISOString().slice(0, 10)}.zip`;
+                const zipTitle = getIDCardsPDFTitle(studentsToZip, generateMode);
+                const dateStr = new Date().toISOString().slice(0, 10);
+                a.download = `${zipTitle}_${dateStr}.zip`;
                 a.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
                 toast.success(`✅ Downloaded ${studentsToZip.length} ID card${studentsToZip.length > 1 ? 's' : ''} as ZIP!`);
