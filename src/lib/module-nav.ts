@@ -52,7 +52,15 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
         ]
     },
     m7: { title: 'Payroll', href: '/school-admin/payroll', icon: 'Wallet' },
-    m8: { title: 'ID Cards', href: '/school-admin/id-cards', icon: 'IdCard' },
+    m8: { 
+        title: 'ID Cards & Coupons', 
+        href: '/school-admin/id-cards', 
+        icon: 'IdCard',
+        children: [
+            { title: 'ID Cards Generator', href: '/school-admin/id-cards' },
+            { title: 'Exam Slips & Coupons', href: '/school-admin/coupons' },
+        ]
+    },
     m9: { title: 'QR Fee Collection', href: '/school-admin/qr-fees', icon: 'QrCode' },
     m10: { 
         title: 'Inventory', 
