@@ -11,7 +11,9 @@ import {
     Square, 
     Building2, 
     User, 
-    FileText
+    FileText,
+    Palette,
+    Eye
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,81 @@ import { getIDCardsPageData } from '@/app/actions';
 import { School, Student } from '@/types';
 import { toast } from 'sonner';
 
+// Theme Configurations
+const THEMES: Record<string, {
+    name: string;
+    border: string;
+    headerBg: string;
+    headerText: string;
+    badgeBg: string;
+    badgeText: string;
+    highlightText: string;
+    seatBadgeBg: string;
+    tokenFooterBg: string;
+    tokenTextColor: string;
+}> = {
+    bw: {
+        name: '🖤 Black & White (Mono - Save Ink)',
+        border: 'border-slate-900',
+        headerBg: 'bg-black',
+        headerText: 'text-white',
+        badgeBg: 'bg-black',
+        badgeText: 'text-white',
+        highlightText: 'text-slate-950 font-black',
+        seatBadgeBg: 'bg-black text-white',
+        tokenFooterBg: 'bg-black',
+        tokenTextColor: 'text-yellow-400'
+    },
+    indigo: {
+        name: '💙 Indigo Modern',
+        border: 'border-indigo-900',
+        headerBg: 'bg-indigo-950',
+        headerText: 'text-white',
+        badgeBg: 'bg-indigo-600',
+        badgeText: 'text-white',
+        highlightText: 'text-indigo-700 font-black',
+        seatBadgeBg: 'bg-indigo-600 text-white',
+        tokenFooterBg: 'bg-indigo-950',
+        tokenTextColor: 'text-yellow-300'
+    },
+    emerald: {
+        name: '💚 Emerald Green',
+        border: 'border-emerald-900',
+        headerBg: 'bg-emerald-950',
+        headerText: 'text-white',
+        badgeBg: 'bg-emerald-600',
+        badgeText: 'text-white',
+        highlightText: 'text-emerald-700 font-black',
+        seatBadgeBg: 'bg-emerald-600 text-white',
+        tokenFooterBg: 'bg-emerald-950',
+        tokenTextColor: 'text-yellow-300'
+    },
+    crimson: {
+        name: '❤️ Crimson Red',
+        border: 'border-rose-900',
+        headerBg: 'bg-rose-950',
+        headerText: 'text-white',
+        badgeBg: 'bg-rose-600',
+        badgeText: 'text-white',
+        highlightText: 'text-rose-700 font-black',
+        seatBadgeBg: 'bg-rose-600 text-white',
+        tokenFooterBg: 'bg-rose-950',
+        tokenTextColor: 'text-yellow-300'
+    },
+    purple: {
+        name: '💜 Royal Purple',
+        border: 'border-purple-900',
+        headerBg: 'bg-purple-950',
+        headerText: 'text-white',
+        badgeBg: 'bg-purple-600',
+        badgeText: 'text-white',
+        highlightText: 'text-purple-700 font-black',
+        seatBadgeBg: 'bg-purple-600 text-white',
+        tokenFooterBg: 'bg-purple-950',
+        tokenTextColor: 'text-yellow-300'
+    }
+};
+
 export default function ExamAndCouponsPage() {
     const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState<'exam-slips' | 'coupons'>('exam-slips');
@@ -29,6 +106,9 @@ export default function ExamAndCouponsPage() {
     const [school, setSchool] = useState<School | null>(null);
     const [students, setStudents] = useState<Student[]>([]);
     const [staffList, setStaffList] = useState<Student[]>([]);
+
+    // Shared Design Theme (Defaults to Black & White)
+    const [cardTheme, setCardTheme] = useState<string>('bw');
 
     // Selection Filters (Exam Desk Slips)
     const [selectedClass, setSelectedClass] = useState<string>("all");
@@ -116,6 +196,8 @@ export default function ExamAndCouponsPage() {
         };
         fetchData();
     }, []);
+
+    const theme = THEMES[cardTheme] || THEMES.bw;
 
     // Unique Classes & Sections
     const uniqueClasses = Array.from(new Set(students.map(s => s.className).filter(Boolean))).sort();
@@ -250,13 +332,36 @@ export default function ExamAndCouponsPage() {
 
     if (!mounted) return null;
 
+    // Sample student for live preview box
+    const sampleStudent: Student = filteredStudents[0] || {
+        id: 'sample',
+        schoolId: school?.id || 's1',
+        name: 'Rahul Sharma',
+        firstName: 'Rahul',
+        lastName: 'Sharma',
+        admissionNumber: 'ADM2026-001',
+        rollNumber: '12',
+        className: 'Grade 10',
+        section: 'A',
+        phone: '9876543210',
+        currentAddress: 'Sample Street',
+        bloodGroup: 'B+',
+        dob: '2010-05-15',
+        gender: 'Male',
+        fatherName: 'Sanjay Sharma',
+        motherName: 'Anjali Sharma',
+        photo: '',
+        status: 'Active',
+        currentSessionId: ''
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <GraduationCap className="h-8 w-8 text-indigo-600" />
+                        <GraduationCap className="h-8 w-8 text-slate-900 dark:text-slate-100" />
                         Exam Slips & Event Coupons
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">
@@ -271,7 +376,7 @@ export default function ExamAndCouponsPage() {
                     onClick={() => setActiveTab('exam-slips')}
                     className={`pb-3 text-sm font-bold transition-all border-b-2 px-1 flex items-center gap-2 ${
                         activeTab === 'exam-slips'
-                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                            ? 'border-black text-black dark:text-white dark:border-white font-extrabold'
                             : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                 >
@@ -281,7 +386,7 @@ export default function ExamAndCouponsPage() {
                     onClick={() => setActiveTab('coupons')}
                     className={`pb-3 text-sm font-bold transition-all border-b-2 px-1 flex items-center gap-2 ${
                         activeTab === 'coupons'
-                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                            ? 'border-black text-black dark:text-white dark:border-white font-extrabold'
                             : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                 >
@@ -296,11 +401,30 @@ export default function ExamAndCouponsPage() {
                     <Card className="md:col-span-1 border-slate-200 shadow-sm bg-white">
                         <CardHeader className="pb-3 border-b border-slate-100">
                             <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-indigo-600" /> Exam Setup
+                                <FileText className="h-4 w-4 text-slate-800" /> Exam Setup
                             </CardTitle>
-                            <CardDescription className="text-xs">Configure seating & hall info</CardDescription>
+                            <CardDescription className="text-xs">Configure seating & styling</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-4">
+                            {/* Theme Selector */}
+                            <div className="space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <Palette className="h-3.5 w-3.5 text-slate-700" /> Design Style & Color
+                                </label>
+                                <Select value={cardTheme} onValueChange={setCardTheme}>
+                                    <SelectTrigger className="bg-white text-xs font-semibold border-slate-300">
+                                        <SelectValue placeholder="Theme" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(THEMES).map(([k, t]) => (
+                                            <SelectItem key={k} value={k} className="text-xs font-medium">
+                                                {t.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-slate-700">Exam Title</label>
                                 <Input 
@@ -366,8 +490,54 @@ export default function ExamAndCouponsPage() {
                                 </Select>
                             </div>
 
+                            {/* Live Card Sample Preview */}
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                                    <Eye className="h-3.5 w-3.5 text-slate-600" /> Live Design Preview
+                                </div>
+                                <div className={`border-2 ${theme.border} rounded-lg p-2.5 bg-white text-slate-900 text-left relative overflow-hidden shadow-sm scale-[0.95] origin-top`}>
+                                    <div className="border-b border-slate-900 pb-1 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            {school?.logo ? (
+                                                <img src={school.logo} alt="Logo" className="w-5 h-5 object-contain" />
+                                            ) : (
+                                                <Building2 className="w-4 h-4 text-slate-900" />
+                                            )}
+                                            <div>
+                                                <h5 className="font-extrabold text-[10px] uppercase leading-tight truncate max-w-[120px]">{school?.name || 'School Name'}</h5>
+                                                <p className={`text-[8px] ${theme.highlightText} uppercase`}>{examName}</p>
+                                            </div>
+                                        </div>
+                                        <span className={`${theme.badgeBg} ${theme.badgeText} text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase`}>
+                                            DESK SLIP
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-1.5 my-2 items-center text-[9px]">
+                                        <div className="col-span-1 border border-slate-300 rounded h-12 bg-slate-100 flex items-center justify-center">
+                                            <User className="w-5 h-5 text-slate-400" />
+                                        </div>
+                                        <div className="col-span-2 space-y-0.5">
+                                            <div className="font-black text-[10px] truncate">{sampleStudent.name}</div>
+                                            <div className="text-slate-600 text-[8px]">{sampleStudent.className || 'Grade 10'} ({sampleStudent.section || 'A'}) | Roll #{sampleStudent.rollNumber || '12'}</div>
+                                            <div className="font-bold text-[8px]">{examHall}</div>
+                                        </div>
+                                        <div className="col-span-1 flex flex-col items-center">
+                                            <div className="p-0.5 bg-white border border-slate-300 rounded">
+                                                <QRCode value="SAMPLE" size={32} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-100 border-t border-slate-900 pt-1 flex items-center justify-between px-1 -mx-2.5 -mb-2.5 pb-1">
+                                        <span className="text-[8px] font-semibold text-slate-600">Sample Preview</span>
+                                        <span className={`${theme.seatBadgeBg} font-black text-[9px] px-2 py-0.5 rounded`}>
+                                            SEAT: {seatPrefix}01
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <Button 
-                                className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow"
+                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow"
                                 disabled={selectedStudentIds.size === 0}
                                 onClick={handlePrintExamSlips}
                             >
@@ -415,14 +585,14 @@ export default function ExamAndCouponsPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="max-h-[500px] overflow-y-auto">
+                            <div className="max-h-[550px] overflow-y-auto">
                                 <table className="w-full text-xs text-left border-collapse">
                                     <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
                                         <tr>
                                             <th className="p-3 w-10 text-center">
-                                                <button onClick={handleToggleSelectAllStudents} className="text-slate-600 hover:text-indigo-600">
+                                                <button onClick={handleToggleSelectAllStudents} className="text-slate-600 hover:text-black">
                                                     {selectedStudentIds.size === filteredStudents.length && filteredStudents.length > 0 ? (
-                                                        <CheckSquare className="h-4 w-4 text-indigo-600" />
+                                                        <CheckSquare className="h-4 w-4 text-black" />
                                                     ) : (
                                                         <Square className="h-4 w-4" />
                                                     )}
@@ -448,11 +618,11 @@ export default function ExamAndCouponsPage() {
                                                     <tr 
                                                         key={s.id} 
                                                         onClick={() => handleToggleStudent(s.id)}
-                                                        className={`cursor-pointer transition-colors hover:bg-indigo-50/50 ${isSelected ? 'bg-indigo-50/30' : ''}`}
+                                                        className={`cursor-pointer transition-colors hover:bg-slate-100/70 ${isSelected ? 'bg-slate-100/80' : ''}`}
                                                     >
                                                         <td className="p-3 text-center">
                                                             {isSelected ? (
-                                                                <CheckSquare className="h-4 w-4 text-indigo-600 mx-auto" />
+                                                                <CheckSquare className="h-4 w-4 text-black mx-auto" />
                                                             ) : (
                                                                 <Square className="h-4 w-4 text-slate-300 mx-auto" />
                                                             )}
@@ -461,7 +631,7 @@ export default function ExamAndCouponsPage() {
                                                         <td className="p-3 text-slate-600">{s.className || '-'} {s.section ? `(${s.section})` : ''}</td>
                                                         <td className="p-3 text-slate-600">{s.rollNumber || '-'}</td>
                                                         <td className="p-3 text-slate-500 font-mono text-[11px]">{s.admissionNumber || '-'}</td>
-                                                        <td className="p-3 text-right font-bold text-indigo-600 font-mono">{autoSeatNo}</td>
+                                                        <td className="p-3 text-right font-black text-slate-900 font-mono">{autoSeatNo}</td>
                                                     </tr>
                                                 );
                                             })
@@ -481,11 +651,30 @@ export default function ExamAndCouponsPage() {
                     <Card className="md:col-span-1 border-slate-200 shadow-sm bg-white">
                         <CardHeader className="pb-3 border-b border-slate-100">
                             <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <Ticket className="h-4 w-4 text-indigo-600" /> Coupon Setup
+                                <Ticket className="h-4 w-4 text-slate-800" /> Coupon Setup
                             </CardTitle>
                             <CardDescription className="text-xs">Configure title, validity & serials</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-4">
+                            {/* Theme Selector */}
+                            <div className="space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <Palette className="h-3.5 w-3.5 text-slate-700" /> Design Style & Color
+                                </label>
+                                <Select value={cardTheme} onValueChange={setCardTheme}>
+                                    <SelectTrigger className="bg-white text-xs font-semibold border-slate-300">
+                                        <SelectValue placeholder="Theme" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(THEMES).map(([k, t]) => (
+                                            <SelectItem key={k} value={k} className="text-xs font-medium">
+                                                {t.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-slate-700">Coupon Category</label>
                                 <Select value={couponCategory} onValueChange={(val: any) => setCouponCategory(val)}>
@@ -592,8 +781,50 @@ export default function ExamAndCouponsPage() {
                                 </Select>
                             </div>
 
+                            {/* Live Coupon Sample Preview */}
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                                    <Eye className="h-3.5 w-3.5 text-slate-600" /> Live Coupon Preview
+                                </div>
+                                <div className={`border-2 border-dashed ${theme.border} rounded-lg p-2.5 bg-white text-slate-900 text-left relative overflow-hidden shadow-sm scale-[0.95] origin-top`}>
+                                    <div className="absolute top-1 right-2 text-[8px] text-slate-400 font-mono">
+                                        ✂️ CUT HERE
+                                    </div>
+                                    <div className="border-b border-slate-300 pb-1 flex items-center justify-between pr-10">
+                                        <div className="flex items-center gap-1">
+                                            <Utensils className={`w-3.5 h-3.5 ${theme.highlightText}`} />
+                                            <div>
+                                                <h5 className="font-extrabold text-[10px] leading-tight text-slate-900 truncate max-w-[110px]">{couponTitle}</h5>
+                                                <p className="text-[7px] font-bold text-slate-500">{school?.name || 'School Name'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="my-1.5 grid grid-cols-4 gap-1 items-center text-[8px]">
+                                        <div className="col-span-3 space-y-0.5">
+                                            <div className="text-slate-600 font-medium truncate">{couponDescription}</div>
+                                            <div className="font-bold text-slate-900">
+                                                Issued To: <span className={theme.highlightText}>Rahul Sharma</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-slate-500 font-semibold text-[7px]">
+                                                <span>Valid: {couponValDate}</span>
+                                                <span className="font-black text-slate-900">{couponPrice}</span>
+                                            </div>
+                                        </div>
+                                        <div className="col-span-1 flex flex-col items-center">
+                                            <div className="p-0.5 bg-white border border-slate-300 rounded">
+                                                <QRCode value="SAMPLE" size={28} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={`${theme.tokenFooterBg} text-white flex items-center justify-between px-2 py-0.5 -mx-2.5 -mb-2.5 rounded-b-md text-[8px]`}>
+                                        <span className="font-bold uppercase tracking-wider">VOUCHER</span>
+                                        <span className={`font-black font-mono tracking-widest ${theme.tokenTextColor}`}>{tokenPrefix}001</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <Button 
-                                className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow"
+                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow"
                                 disabled={recipientType !== 'guest_batch' && selectedCouponRecipientIds.size === 0}
                                 onClick={handlePrintCoupons}
                             >
@@ -636,14 +867,14 @@ export default function ExamAndCouponsPage() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="max-h-[500px] overflow-y-auto">
+                                <div className="max-h-[550px] overflow-y-auto">
                                     <table className="w-full text-xs text-left border-collapse">
                                         <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
                                             <tr>
                                                 <th className="p-3 w-10 text-center">
-                                                    <button onClick={handleToggleSelectAllCouponRecipients} className="text-slate-600 hover:text-indigo-600">
+                                                    <button onClick={handleToggleSelectAllCouponRecipients} className="text-slate-600 hover:text-black">
                                                         {selectedCouponRecipientIds.size === activeCouponRecipients.length && activeCouponRecipients.length > 0 ? (
-                                                            <CheckSquare className="h-4 w-4 text-indigo-600" />
+                                                            <CheckSquare className="h-4 w-4 text-black" />
                                                         ) : (
                                                             <Square className="h-4 w-4" />
                                                         )}
@@ -669,11 +900,11 @@ export default function ExamAndCouponsPage() {
                                                         <tr 
                                                             key={item.id} 
                                                             onClick={() => handleToggleCouponRecipient(item.id)}
-                                                            className={`cursor-pointer transition-colors hover:bg-indigo-50/50 ${isSelected ? 'bg-indigo-50/30' : ''}`}
+                                                            className={`cursor-pointer transition-colors hover:bg-slate-100/70 ${isSelected ? 'bg-slate-100/80' : ''}`}
                                                         >
                                                             <td className="p-3 text-center">
                                                                 {isSelected ? (
-                                                                    <CheckSquare className="h-4 w-4 text-indigo-600 mx-auto" />
+                                                                    <CheckSquare className="h-4 w-4 text-black mx-auto" />
                                                                 ) : (
                                                                     <Square className="h-4 w-4 text-slate-300 mx-auto" />
                                                                 )}
@@ -682,7 +913,7 @@ export default function ExamAndCouponsPage() {
                                                             <td className="p-3 text-slate-600">{item.section || item.className || '-'}</td>
                                                             <td className="p-3 text-slate-600">{item.rollNumber || item.className || '-'}</td>
                                                             <td className="p-3 text-slate-500 font-mono text-[11px]">{item.admissionNumber || '-'}</td>
-                                                            <td className="p-3 text-right font-bold text-indigo-600 font-mono">{token}</td>
+                                                            <td className="p-3 text-right font-black text-slate-900 font-mono">{token}</td>
                                                         </tr>
                                                     );
                                                 })
@@ -715,21 +946,21 @@ export default function ExamAndCouponsPage() {
                             });
 
                             return (
-                                <div key={student.id} className="exam-desk-card border-2 border-slate-800 rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden">
+                                <div key={student.id} className={`exam-desk-card border-2 ${theme.border} rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden`}>
                                     {/* Header */}
-                                    <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
+                                    <div className={`border-b-2 ${theme.border} pb-2 flex items-center justify-between`}>
                                         <div className="flex items-center gap-2">
                                             {school?.logo ? (
                                                 <img src={school.logo} alt="Logo" className="w-8 h-8 object-contain" />
                                             ) : (
-                                                <Building2 className="w-6 h-6 text-slate-800" />
+                                                <Building2 className="w-6 h-6 text-slate-900" />
                                             )}
                                             <div>
                                                 <h4 className="font-black text-xs uppercase leading-tight text-slate-900">{school?.name || 'School System'}</h4>
-                                                <p className="text-[10px] font-bold text-indigo-700 uppercase">{examName}</p>
+                                                <p className={`text-[10px] ${theme.highlightText} uppercase`}>{examName}</p>
                                             </div>
                                         </div>
-                                        <div className="bg-slate-900 text-white text-[10px] font-extrabold px-2 py-0.5 rounded uppercase">
+                                        <div className={`${theme.badgeBg} ${theme.badgeText} text-[10px] font-extrabold px-2 py-0.5 rounded uppercase`}>
                                             DESK SLIP
                                         </div>
                                     </div>
@@ -737,7 +968,7 @@ export default function ExamAndCouponsPage() {
                                     {/* Content Grid */}
                                     <div className="grid grid-cols-4 gap-2 my-2 items-center">
                                         {/* Photo */}
-                                        <div className="col-span-1 border border-slate-300 rounded overflow-hidden h-20 bg-slate-100 flex items-center justify-center">
+                                        <div className="col-span-1 border-2 border-slate-800 rounded overflow-hidden h-20 bg-slate-100 flex items-center justify-center">
                                             {student.photo ? (
                                                 <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
                                             ) : (
@@ -746,42 +977,42 @@ export default function ExamAndCouponsPage() {
                                         </div>
 
                                         {/* Details */}
-                                        <div className="col-span-2 space-y-1 text-slate-800">
+                                        <div className="col-span-2 space-y-1 text-slate-900">
                                             <div>
                                                 <span className="text-[9px] text-slate-500 uppercase block font-bold">Student Name</span>
-                                                <span className="text-xs font-black leading-tight block truncate">{student.name}</span>
+                                                <span className="text-xs font-black leading-tight block truncate text-slate-950">{student.name}</span>
                                             </div>
                                             <div className="grid grid-cols-2 gap-1 text-[10px]">
                                                 <div>
                                                     <span className="text-[8px] text-slate-500 uppercase block font-bold">Class & Sec</span>
-                                                    <span className="font-bold">{student.className || '-'} ({student.section || '-'})</span>
+                                                    <span className="font-bold text-slate-900">{student.className || '-'} ({student.section || '-'})</span>
                                                 </div>
                                                 <div>
                                                     <span className="text-[8px] text-slate-500 uppercase block font-bold">Roll No</span>
-                                                    <span className="font-bold">{student.rollNumber || '-'}</span>
+                                                    <span className="font-bold text-slate-900">{student.rollNumber || '-'}</span>
                                                 </div>
                                             </div>
                                             <div>
                                                 <span className="text-[8px] text-slate-500 uppercase block font-bold">Hall / Room</span>
-                                                <span className="text-[10px] font-extrabold text-slate-900">{examHall}</span>
+                                                <span className="text-[10px] font-extrabold text-slate-950">{examHall}</span>
                                             </div>
                                         </div>
 
                                         {/* QR Code */}
-                                        <div className="col-span-1 flex flex-col items-center justify-center border-l border-slate-200 pl-1">
-                                            <div className="p-1 bg-white border border-slate-300 rounded">
+                                        <div className="col-span-1 flex flex-col items-center justify-center border-l-2 border-slate-800 pl-1">
+                                            <div className="p-1 bg-white border border-slate-800 rounded">
                                                 <QRCode value={qrPayload} size={54} />
                                             </div>
-                                            <span className="text-[8px] font-bold text-slate-500 mt-1 font-mono">{student.admissionNumber}</span>
+                                            <span className="text-[8px] font-bold text-slate-700 mt-1 font-mono">{student.admissionNumber}</span>
                                         </div>
                                     </div>
 
                                     {/* Seat Badge Footer */}
-                                    <div className="bg-slate-100 border-t-2 border-slate-800 pt-1 flex items-center justify-between px-2 -mx-3 -mb-3 pb-2 mt-auto">
-                                        <div className="text-[9px] font-bold text-slate-600">
+                                    <div className={`bg-slate-100 border-t-2 ${theme.border} pt-1 flex items-center justify-between px-2 -mx-3 -mb-3 pb-2 mt-auto`}>
+                                        <div className="text-[9px] font-bold text-slate-700">
                                             {examDate && <span>Date: {examDate}</span>}
                                         </div>
-                                        <div className="bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded shadow">
+                                        <div className={`${theme.seatBadgeBg} font-black text-xs px-3 py-1 rounded shadow`}>
                                             SEAT: {seatNo}
                                         </div>
                                     </div>
@@ -806,19 +1037,19 @@ export default function ExamAndCouponsPage() {
                             });
 
                             return (
-                                <div key={item.id} className="food-coupon-card border-2 border-dashed border-slate-800 rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden">
+                                <div key={item.id} className={`food-coupon-card border-2 border-dashed ${theme.border} rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden`}>
                                     {/* Scissor Cut Mark */}
-                                    <div className="absolute top-1 right-2 text-[9px] text-slate-400 font-mono flex items-center gap-1">
+                                    <div className="absolute top-1 right-2 text-[9px] text-slate-500 font-mono flex items-center gap-1 font-bold">
                                         ✂️ CUT HERE
                                     </div>
 
                                     {/* Header */}
-                                    <div className="border-b border-slate-300 pb-1.5 flex items-center justify-between pr-14">
+                                    <div className="border-b-2 border-slate-800 pb-1.5 flex items-center justify-between pr-14">
                                         <div className="flex items-center gap-1.5">
-                                            <Utensils className="w-5 h-5 text-indigo-600" />
+                                            <Utensils className={`w-5 h-5 ${theme.highlightText}`} />
                                             <div>
-                                                <h4 className="font-extrabold text-[11px] leading-tight text-slate-900">{couponTitle}</h4>
-                                                <p className="text-[9px] font-bold text-slate-500">{school?.name || 'KuMMi School'}</p>
+                                                <h4 className="font-extrabold text-[11px] leading-tight text-slate-950">{couponTitle}</h4>
+                                                <p className="text-[9px] font-bold text-slate-600">{school?.name || 'KuMMi School'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -826,28 +1057,28 @@ export default function ExamAndCouponsPage() {
                                     {/* Content */}
                                     <div className="my-2 grid grid-cols-4 gap-2 items-center">
                                         <div className="col-span-3 space-y-1">
-                                            <div className="text-[10px] text-slate-700 font-medium">
+                                            <div className="text-[10px] text-slate-800 font-medium">
                                                 {couponDescription}
                                             </div>
-                                            <div className="text-[10px] font-bold text-slate-800">
-                                                Issued To: <span className="font-black text-indigo-700">{item.name}</span> {item.className ? `(${item.className})` : ''}
+                                            <div className="text-[10px] font-bold text-slate-900">
+                                                Issued To: <span className={`font-black ${theme.highlightText}`}>{item.name}</span> {item.className ? `(${item.className})` : ''}
                                             </div>
-                                            <div className="flex items-center gap-3 text-[9px] text-slate-500 font-semibold">
+                                            <div className="flex items-center gap-3 text-[9px] text-slate-600 font-semibold">
                                                 <span>📅 Valid: {couponValDate}</span>
-                                                <span className="font-bold text-slate-800">💵 {couponPrice}</span>
+                                                <span className="font-black text-slate-950">💵 {couponPrice}</span>
                                             </div>
                                         </div>
                                         <div className="col-span-1 flex flex-col items-center justify-center">
-                                            <div className="p-1 bg-white border border-slate-300 rounded">
+                                            <div className="p-1 bg-white border-2 border-slate-800 rounded">
                                                 <QRCode value={qrPayload} size={48} />
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Token Footer */}
-                                    <div className="bg-slate-900 text-white flex items-center justify-between px-2 py-1 -mx-3 -mb-3 rounded-b-md">
-                                        <span className="text-[9px] font-bold uppercase tracking-wider">OFFICIAL VOUCHER</span>
-                                        <span className="text-xs font-black font-mono tracking-widest text-yellow-300">{token}</span>
+                                    <div className={`${theme.tokenFooterBg} text-white flex items-center justify-between px-2 py-1 -mx-3 -mb-3 rounded-b-md`}>
+                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">OFFICIAL VOUCHER</span>
+                                        <span className={`text-xs font-black font-mono tracking-widest ${theme.tokenTextColor}`}>{token}</span>
                                     </div>
                                 </div>
                             );
