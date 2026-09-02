@@ -98,6 +98,195 @@ const THEMES: Record<string, {
     }
 };
 
+// Reusable Exam Desk Slip Card Component (100% visual parity between preview & print)
+function ExamDeskSlipCard({
+    student,
+    seatNo,
+    examName,
+    examHall,
+    examDate,
+    school,
+    theme,
+    isCompact = false
+}: {
+    student: Student;
+    seatNo: string;
+    examName: string;
+    examHall: string;
+    examDate?: string;
+    school: School | null;
+    theme: typeof THEMES['bw'];
+    isCompact?: boolean;
+}) {
+    const qrPayload = JSON.stringify({
+        type: 'EXAM_SLIP',
+        school: school?.name,
+        student: student.name,
+        admNo: student.admissionNumber,
+        rollNo: student.rollNumber,
+        seatNo,
+        exam: examName,
+        hall: examHall
+    });
+
+    return (
+        <div className={`exam-desk-card border-2 ${theme.border} rounded-lg p-2.5 bg-white flex flex-col justify-between relative overflow-hidden shadow-sm box-border w-full h-full`}>
+            {/* Top Banner Header */}
+            <div className={`border-b-2 ${theme.border} pb-1.5 flex items-center justify-between`}>
+                <div className="flex items-center gap-2 overflow-hidden">
+                    {school?.logo ? (
+                        <img src={school.logo} alt="Logo" className="w-7 h-7 object-contain flex-shrink-0" />
+                    ) : (
+                        <Building2 className="w-6 h-6 text-slate-900 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                        <h4 className="font-extrabold text-[11px] uppercase leading-tight text-slate-950 truncate max-w-[170px]">
+                            {school?.name || 'KuMMi School System'}
+                        </h4>
+                        <p className={`text-[9px] ${theme.highlightText} uppercase leading-tight truncate max-w-[170px]`}>
+                            {examName}
+                        </p>
+                    </div>
+                </div>
+                <div className={`${theme.badgeBg} ${theme.badgeText} text-[9px] font-black px-2 py-0.5 rounded uppercase flex-shrink-0`}>
+                    DESK SLIP
+                </div>
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-12 gap-2 my-1.5 items-center flex-1">
+                {/* Photo Frame (Fixed Aspect Ratio - Never Distorts) */}
+                <div className="col-span-3 border-2 border-slate-900 rounded overflow-hidden h-[72px] bg-slate-50 flex items-center justify-center flex-shrink-0">
+                    {student.photo ? (
+                        <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
+                    ) : (
+                        <User className="w-8 h-8 text-slate-400" />
+                    )}
+                </div>
+
+                {/* Details Column */}
+                <div className="col-span-6 space-y-0.5 text-slate-950 pr-1">
+                    <div>
+                        <span className="text-[8px] text-slate-500 uppercase block font-extrabold">Student Name</span>
+                        <span className="text-xs font-black leading-snug block truncate text-slate-950">{student.name}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[9px]">
+                        <div>
+                            <span className="text-[7px] text-slate-500 uppercase block font-extrabold">Class & Sec</span>
+                            <span className="font-bold text-slate-900">{student.className || '-'} {student.section ? `(${student.section})` : ''}</span>
+                        </div>
+                        <div>
+                            <span className="text-[7px] text-slate-500 uppercase block font-extrabold">Roll No</span>
+                            <span className="font-bold text-slate-900">{student.rollNumber || '-'}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span className="text-[7px] text-slate-500 uppercase block font-extrabold">Hall / Room</span>
+                        <span className="text-[10px] font-black text-slate-950 block truncate">{examHall}</span>
+                    </div>
+                </div>
+
+                {/* QR Code Column */}
+                <div className="col-span-3 flex flex-col items-center justify-center border-l-2 border-slate-900 pl-1">
+                    <div className="p-0.5 bg-white border border-slate-800 rounded flex-shrink-0">
+                        <QRCode value={qrPayload} size={48} />
+                    </div>
+                    <span className="text-[7.5px] font-bold text-slate-700 mt-1 font-mono text-center truncate max-w-full">
+                        {student.admissionNumber || 'ADM-001'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Bottom Seat Badge Footer */}
+            <div className={`bg-slate-100 border-t-2 ${theme.border} pt-1 flex items-center justify-between px-2 -mx-2.5 -mb-2.5 pb-1.5 mt-auto`}>
+                <div className="text-[8.5px] font-extrabold text-slate-700">
+                    {examDate ? <span>Date: {examDate}</span> : <span>Verified Admit Slip</span>}
+                </div>
+                <div className={`${theme.seatBadgeBg} font-black text-[11px] px-2.5 py-0.5 rounded shadow-sm tracking-wide`}>
+                    SEAT: {seatNo}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Reusable Food/Functional Coupon Card Component (100% visual parity)
+function FoodCouponCard({
+    item,
+    token,
+    couponTitle,
+    couponDescription,
+    couponValDate,
+    couponPrice,
+    school,
+    theme
+}: {
+    item: any;
+    token: string;
+    couponTitle: string;
+    couponDescription: string;
+    couponValDate: string;
+    couponPrice: string;
+    school: School | null;
+    theme: typeof THEMES['bw'];
+}) {
+    const qrPayload = JSON.stringify({
+        type: 'COUPON',
+        title: couponTitle,
+        token,
+        recipient: item.name,
+        validDate: couponValDate,
+        school: school?.name
+    });
+
+    return (
+        <div className={`food-coupon-card border-2 border-dashed ${theme.border} rounded-lg p-2.5 bg-white flex flex-col justify-between relative overflow-hidden shadow-sm box-border w-full h-full`}>
+            {/* Scissor Cut Line */}
+            <div className="absolute top-1 right-2 text-[8px] text-slate-500 font-mono flex items-center gap-1 font-extrabold">
+                ✂️ CUT HERE
+            </div>
+
+            {/* Header */}
+            <div className="border-b-2 border-slate-900 pb-1 flex items-center justify-between pr-14">
+                <div className="flex items-center gap-1.5">
+                    <Utensils className={`w-4 h-4 ${theme.highlightText}`} />
+                    <div className="min-w-0">
+                        <h4 className="font-extrabold text-[10.5px] leading-tight text-slate-950 truncate max-w-[160px]">{couponTitle}</h4>
+                        <p className="text-[8px] font-bold text-slate-600">{school?.name || 'KuMMi School System'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="my-1.5 grid grid-cols-12 gap-1.5 items-center flex-1">
+                <div className="col-span-9 space-y-0.5">
+                    <div className="text-[9.5px] text-slate-800 font-medium leading-tight line-clamp-2">
+                        {couponDescription}
+                    </div>
+                    <div className="text-[9.5px] font-bold text-slate-900">
+                        Issued To: <span className={`font-black ${theme.highlightText}`}>{item.name}</span> {item.className ? `(${item.className})` : ''}
+                    </div>
+                    <div className="flex items-center gap-3 text-[8.5px] text-slate-600 font-semibold pt-0.5">
+                        <span>📅 Valid: {couponValDate}</span>
+                        <span className="font-black text-slate-950">💵 {couponPrice}</span>
+                    </div>
+                </div>
+                <div className="col-span-3 flex flex-col items-center justify-center">
+                    <div className="p-0.5 bg-white border-2 border-slate-800 rounded">
+                        <QRCode value={qrPayload} size={42} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Token Footer */}
+            <div className={`${theme.tokenFooterBg} text-white flex items-center justify-between px-2 py-1 -mx-2.5 -mb-2.5 rounded-b-md`}>
+                <span className="text-[8.5px] font-extrabold uppercase tracking-wider">OFFICIAL VOUCHER</span>
+                <span className={`text-[11px] font-black font-mono tracking-widest ${theme.tokenTextColor}`}>{token}</span>
+            </div>
+        </div>
+    );
+}
+
 export default function ExamAndCouponsPage() {
     const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState<'exam-slips' | 'coupons'>('exam-slips');
@@ -355,6 +544,24 @@ export default function ExamAndCouponsPage() {
         currentSessionId: ''
     };
 
+    // Calculate Page Chunk Size for Print Page Breaks
+    const getChunkSize = () => {
+        if (printMode === 'exam') {
+            if (slipLayout === '6_per_page') return 6;
+            if (slipLayout === '4_per_page') return 4;
+            return 10;
+        } else {
+            if (couponLayout === '10_per_page') return 10;
+            return 12;
+        }
+    };
+
+    const chunkSize = getChunkSize();
+    const pagesToPrint: any[][] = [];
+    for (let i = 0; i < itemsToPrint.length; i += chunkSize) {
+        pagesToPrint.push(itemsToPrint.slice(i, i + chunkSize));
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -495,49 +702,21 @@ export default function ExamAndCouponsPage() {
                                 <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
                                     <Eye className="h-3.5 w-3.5 text-slate-600" /> Live Design Preview
                                 </div>
-                                <div className={`border-2 ${theme.border} rounded-lg p-2.5 bg-white text-slate-900 text-left relative overflow-hidden shadow-sm scale-[0.95] origin-top`}>
-                                    <div className="border-b border-slate-900 pb-1 flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                            {school?.logo ? (
-                                                <img src={school.logo} alt="Logo" className="w-5 h-5 object-contain" />
-                                            ) : (
-                                                <Building2 className="w-4 h-4 text-slate-900" />
-                                            )}
-                                            <div>
-                                                <h5 className="font-extrabold text-[10px] uppercase leading-tight truncate max-w-[120px]">{school?.name || 'School Name'}</h5>
-                                                <p className={`text-[8px] ${theme.highlightText} uppercase`}>{examName}</p>
-                                            </div>
-                                        </div>
-                                        <span className={`${theme.badgeBg} ${theme.badgeText} text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase`}>
-                                            DESK SLIP
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-1.5 my-2 items-center text-[9px]">
-                                        <div className="col-span-1 border border-slate-300 rounded h-12 bg-slate-100 flex items-center justify-center">
-                                            <User className="w-5 h-5 text-slate-400" />
-                                        </div>
-                                        <div className="col-span-2 space-y-0.5">
-                                            <div className="font-black text-[10px] truncate">{sampleStudent.name}</div>
-                                            <div className="text-slate-600 text-[8px]">{sampleStudent.className || 'Grade 10'} ({sampleStudent.section || 'A'}) | Roll #{sampleStudent.rollNumber || '12'}</div>
-                                            <div className="font-bold text-[8px]">{examHall}</div>
-                                        </div>
-                                        <div className="col-span-1 flex flex-col items-center">
-                                            <div className="p-0.5 bg-white border border-slate-300 rounded">
-                                                <QRCode value="SAMPLE" size={32} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-100 border-t border-slate-900 pt-1 flex items-center justify-between px-1 -mx-2.5 -mb-2.5 pb-1">
-                                        <span className="text-[8px] font-semibold text-slate-600">Sample Preview</span>
-                                        <span className={`${theme.seatBadgeBg} font-black text-[9px] px-2 py-0.5 rounded`}>
-                                            SEAT: {seatPrefix}01
-                                        </span>
-                                    </div>
+                                <div className="h-[145px] w-full">
+                                    <ExamDeskSlipCard 
+                                        student={sampleStudent}
+                                        seatNo={`${seatPrefix}01`}
+                                        examName={examName}
+                                        examHall={examHall}
+                                        examDate={examDate}
+                                        school={school}
+                                        theme={theme}
+                                    />
                                 </div>
                             </div>
 
                             <Button 
-                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow"
+                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow mt-2"
                                 disabled={selectedStudentIds.size === 0}
                                 onClick={handlePrintExamSlips}
                             >
@@ -786,45 +965,22 @@ export default function ExamAndCouponsPage() {
                                 <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
                                     <Eye className="h-3.5 w-3.5 text-slate-600" /> Live Coupon Preview
                                 </div>
-                                <div className={`border-2 border-dashed ${theme.border} rounded-lg p-2.5 bg-white text-slate-900 text-left relative overflow-hidden shadow-sm scale-[0.95] origin-top`}>
-                                    <div className="absolute top-1 right-2 text-[8px] text-slate-400 font-mono">
-                                        ✂️ CUT HERE
-                                    </div>
-                                    <div className="border-b border-slate-300 pb-1 flex items-center justify-between pr-10">
-                                        <div className="flex items-center gap-1">
-                                            <Utensils className={`w-3.5 h-3.5 ${theme.highlightText}`} />
-                                            <div>
-                                                <h5 className="font-extrabold text-[10px] leading-tight text-slate-900 truncate max-w-[110px]">{couponTitle}</h5>
-                                                <p className="text-[7px] font-bold text-slate-500">{school?.name || 'School Name'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="my-1.5 grid grid-cols-4 gap-1 items-center text-[8px]">
-                                        <div className="col-span-3 space-y-0.5">
-                                            <div className="text-slate-600 font-medium truncate">{couponDescription}</div>
-                                            <div className="font-bold text-slate-900">
-                                                Issued To: <span className={theme.highlightText}>Rahul Sharma</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-slate-500 font-semibold text-[7px]">
-                                                <span>Valid: {couponValDate}</span>
-                                                <span className="font-black text-slate-900">{couponPrice}</span>
-                                            </div>
-                                        </div>
-                                        <div className="col-span-1 flex flex-col items-center">
-                                            <div className="p-0.5 bg-white border border-slate-300 rounded">
-                                                <QRCode value="SAMPLE" size={28} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className={`${theme.tokenFooterBg} text-white flex items-center justify-between px-2 py-0.5 -mx-2.5 -mb-2.5 rounded-b-md text-[8px]`}>
-                                        <span className="font-bold uppercase tracking-wider">VOUCHER</span>
-                                        <span className={`font-black font-mono tracking-widest ${theme.tokenTextColor}`}>{tokenPrefix}001</span>
-                                    </div>
+                                <div className="h-[125px] w-full">
+                                    <FoodCouponCard 
+                                        item={sampleStudent}
+                                        token={`${tokenPrefix}001`}
+                                        couponTitle={couponTitle}
+                                        couponDescription={couponDescription}
+                                        couponValDate={couponValDate}
+                                        couponPrice={couponPrice}
+                                        school={school}
+                                        theme={theme}
+                                    />
                                 </div>
                             </div>
 
                             <Button 
-                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow"
+                                className="w-full gap-2 bg-slate-900 hover:bg-black text-white font-bold shadow mt-2"
                                 disabled={recipientType !== 'guest_batch' && selectedCouponRecipientIds.size === 0}
                                 onClick={handlePrintCoupons}
                             >
@@ -927,177 +1083,77 @@ export default function ExamAndCouponsPage() {
                 </div>
             )}
 
-            {/* PRINTABLE RENDER CONTAINER (OFF-SCREEN / PRINT MATRIX) */}
+            {/* PRINTABLE RENDER CONTAINER (STRICT A4 CHUNKED PRINT MATRIX) */}
             <div id="printable-coupons-container" className="hidden print:block">
-                {/* EXAM DESK SLIPS PRINT RENDER */}
+                {/* EXAM DESK SLIPS PRINT PAGES */}
                 {printMode === 'exam' && (
-                    <div className={`print-sheet-container ${slipLayout}`}>
-                        {itemsToPrint.map((student, idx) => {
-                            const seatNo = `${seatPrefix}${(startSeatNum + idx).toString().padStart(2, '0')}`;
-                            const qrPayload = JSON.stringify({
-                                type: 'EXAM_SLIP',
-                                school: school?.name,
-                                student: student.name,
-                                admNo: student.admissionNumber,
-                                rollNo: student.rollNumber,
-                                seatNo,
-                                exam: examName,
-                                hall: examHall
-                            });
-
-                            return (
-                                <div key={student.id} className={`exam-desk-card border-2 ${theme.border} rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden`}>
-                                    {/* Header */}
-                                    <div className={`border-b-2 ${theme.border} pb-2 flex items-center justify-between`}>
-                                        <div className="flex items-center gap-2">
-                                            {school?.logo ? (
-                                                <img src={school.logo} alt="Logo" className="w-8 h-8 object-contain" />
-                                            ) : (
-                                                <Building2 className="w-6 h-6 text-slate-900" />
-                                            )}
-                                            <div>
-                                                <h4 className="font-black text-xs uppercase leading-tight text-slate-900">{school?.name || 'School System'}</h4>
-                                                <p className={`text-[10px] ${theme.highlightText} uppercase`}>{examName}</p>
-                                            </div>
+                    <>
+                        {pagesToPrint.map((pageItems, pageIdx) => (
+                            <div key={`page_${pageIdx}`} className={`print-a4-page ${slipLayout}`}>
+                                {pageItems.map((student, idx) => {
+                                    const globalIdx = pageIdx * chunkSize + idx;
+                                    const seatNo = `${seatPrefix}${(startSeatNum + globalIdx).toString().padStart(2, '0')}`;
+                                    return (
+                                        <div key={student.id} className="print-card-wrapper">
+                                            <ExamDeskSlipCard 
+                                                student={student}
+                                                seatNo={seatNo}
+                                                examName={examName}
+                                                examHall={examHall}
+                                                examDate={examDate}
+                                                school={school}
+                                                theme={theme}
+                                            />
                                         </div>
-                                        <div className={`${theme.badgeBg} ${theme.badgeText} text-[10px] font-extrabold px-2 py-0.5 rounded uppercase`}>
-                                            DESK SLIP
-                                        </div>
-                                    </div>
-
-                                    {/* Content Grid */}
-                                    <div className="grid grid-cols-4 gap-2 my-2 items-center">
-                                        {/* Photo */}
-                                        <div className="col-span-1 border-2 border-slate-800 rounded overflow-hidden h-20 bg-slate-100 flex items-center justify-center">
-                                            {student.photo ? (
-                                                <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <User className="w-8 h-8 text-slate-400" />
-                                            )}
-                                        </div>
-
-                                        {/* Details */}
-                                        <div className="col-span-2 space-y-1 text-slate-900">
-                                            <div>
-                                                <span className="text-[9px] text-slate-500 uppercase block font-bold">Student Name</span>
-                                                <span className="text-xs font-black leading-tight block truncate text-slate-950">{student.name}</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-1 text-[10px]">
-                                                <div>
-                                                    <span className="text-[8px] text-slate-500 uppercase block font-bold">Class & Sec</span>
-                                                    <span className="font-bold text-slate-900">{student.className || '-'} ({student.section || '-'})</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[8px] text-slate-500 uppercase block font-bold">Roll No</span>
-                                                    <span className="font-bold text-slate-900">{student.rollNumber || '-'}</span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span className="text-[8px] text-slate-500 uppercase block font-bold">Hall / Room</span>
-                                                <span className="text-[10px] font-extrabold text-slate-950">{examHall}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* QR Code */}
-                                        <div className="col-span-1 flex flex-col items-center justify-center border-l-2 border-slate-800 pl-1">
-                                            <div className="p-1 bg-white border border-slate-800 rounded">
-                                                <QRCode value={qrPayload} size={54} />
-                                            </div>
-                                            <span className="text-[8px] font-bold text-slate-700 mt-1 font-mono">{student.admissionNumber}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Seat Badge Footer */}
-                                    <div className={`bg-slate-100 border-t-2 ${theme.border} pt-1 flex items-center justify-between px-2 -mx-3 -mb-3 pb-2 mt-auto`}>
-                                        <div className="text-[9px] font-bold text-slate-700">
-                                            {examDate && <span>Date: {examDate}</span>}
-                                        </div>
-                                        <div className={`${theme.seatBadgeBg} font-black text-xs px-3 py-1 rounded shadow`}>
-                                            SEAT: {seatNo}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </>
                 )}
 
-                {/* FUNCTIONAL / FOOD COUPONS PRINT RENDER */}
+                {/* FUNCTIONAL / FOOD COUPONS PRINT PAGES */}
                 {printMode === 'coupon' && (
-                    <div className={`print-sheet-container ${couponLayout}`}>
-                        {itemsToPrint.map((item, idx) => {
-                            const token = `${tokenPrefix}${(idx + 1).toString().padStart(3, '0')}`;
-                            const qrPayload = JSON.stringify({
-                                type: 'COUPON',
-                                title: couponTitle,
-                                token,
-                                recipient: item.name,
-                                validDate: couponValDate,
-                                school: school?.name
-                            });
-
-                            return (
-                                <div key={item.id} className={`food-coupon-card border-2 border-dashed ${theme.border} rounded-lg p-3 bg-white flex flex-col justify-between relative overflow-hidden`}>
-                                    {/* Scissor Cut Mark */}
-                                    <div className="absolute top-1 right-2 text-[9px] text-slate-500 font-mono flex items-center gap-1 font-bold">
-                                        ✂️ CUT HERE
-                                    </div>
-
-                                    {/* Header */}
-                                    <div className="border-b-2 border-slate-800 pb-1.5 flex items-center justify-between pr-14">
-                                        <div className="flex items-center gap-1.5">
-                                            <Utensils className={`w-5 h-5 ${theme.highlightText}`} />
-                                            <div>
-                                                <h4 className="font-extrabold text-[11px] leading-tight text-slate-950">{couponTitle}</h4>
-                                                <p className="text-[9px] font-bold text-slate-600">{school?.name || 'KuMMi School'}</p>
-                                            </div>
+                    <>
+                        {pagesToPrint.map((pageItems, pageIdx) => (
+                            <div key={`page_${pageIdx}`} className={`print-a4-page ${couponLayout}`}>
+                                {pageItems.map((item, idx) => {
+                                    const globalIdx = pageIdx * chunkSize + idx;
+                                    const token = `${tokenPrefix}${(globalIdx + 1).toString().padStart(3, '0')}`;
+                                    return (
+                                        <div key={item.id} className="print-card-wrapper">
+                                            <FoodCouponCard 
+                                                item={item}
+                                                token={token}
+                                                couponTitle={couponTitle}
+                                                couponDescription={couponDescription}
+                                                couponValDate={couponValDate}
+                                                couponPrice={couponPrice}
+                                                school={school}
+                                                theme={theme}
+                                            />
                                         </div>
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="my-2 grid grid-cols-4 gap-2 items-center">
-                                        <div className="col-span-3 space-y-1">
-                                            <div className="text-[10px] text-slate-800 font-medium">
-                                                {couponDescription}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-slate-900">
-                                                Issued To: <span className={`font-black ${theme.highlightText}`}>{item.name}</span> {item.className ? `(${item.className})` : ''}
-                                            </div>
-                                            <div className="flex items-center gap-3 text-[9px] text-slate-600 font-semibold">
-                                                <span>📅 Valid: {couponValDate}</span>
-                                                <span className="font-black text-slate-950">💵 {couponPrice}</span>
-                                            </div>
-                                        </div>
-                                        <div className="col-span-1 flex flex-col items-center justify-center">
-                                            <div className="p-1 bg-white border-2 border-slate-800 rounded">
-                                                <QRCode value={qrPayload} size={48} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Token Footer */}
-                                    <div className={`${theme.tokenFooterBg} text-white flex items-center justify-between px-2 py-1 -mx-3 -mb-3 rounded-b-md`}>
-                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">OFFICIAL VOUCHER</span>
-                                        <span className={`text-xs font-black font-mono tracking-widest ${theme.tokenTextColor}`}>{token}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </>
                 )}
             </div>
 
-            {/* Print Layout CSS */}
+            {/* Strict Print Engine Layout CSS */}
             <style>{`
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 6mm;
+                        margin: 5mm;
                     }
                     html, body {
                         background: white !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
                     }
                     body * {
                         visibility: hidden !important;
@@ -1112,43 +1168,58 @@ export default function ExamAndCouponsPage() {
                         width: 100% !important;
                         background: white !important;
                         display: block !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
                     }
-                    .print-sheet-container.6_per_page {
+                    .print-a4-page {
                         display: grid !important;
-                        grid-template-columns: repeat(2, 1fr) !important;
-                        gap: 5mm !important;
+                        grid-template-columns: repeat(2, 94mm) !important;
+                        justify-content: center !important;
+                        align-content: start !important;
                         page-break-after: always !important;
+                        break-after: page !important;
+                        box-sizing: border-box !important;
+                        padding: 3mm 0 !important;
                     }
-                    .print-sheet-container.6_per_page .exam-desk-card {
-                        height: 78mm !important;
+                    .print-a4-page:last-child {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
                     }
-                    .print-sheet-container.4_per_page {
-                        display: grid !important;
-                        grid-template-columns: repeat(2, 1fr) !important;
-                        gap: 8mm !important;
-                        page-break-after: always !important;
+
+                    /* 6 Slips / A4 Page (3 rows x 2 cols) */
+                    .print-a4-page.6_per_page {
+                        gap: 6mm 8mm !important;
                     }
-                    .print-sheet-container.4_per_page .exam-desk-card {
-                        height: 120mm !important;
+                    .print-a4-page.6_per_page .print-card-wrapper {
+                        width: 94mm !important;
+                        height: 82mm !important;
                     }
-                    .print-sheet-container.10_per_page {
-                        display: grid !important;
-                        grid-template-columns: repeat(2, 1fr) !important;
-                        gap: 4mm !important;
-                        page-break-after: always !important;
+
+                    /* 4 Admit Passes / A4 Page (2 rows x 2 cols) */
+                    .print-a4-page.4_per_page {
+                        gap: 10mm 8mm !important;
                     }
-                    .print-sheet-container.10_per_page .exam-desk-card,
-                    .print-sheet-container.10_per_page .food-coupon-card {
-                        height: 52mm !important;
+                    .print-a4-page.4_per_page .print-card-wrapper {
+                        width: 94mm !important;
+                        height: 128mm !important;
                     }
-                    .print-sheet-container.12_stub_page {
-                        display: grid !important;
-                        grid-template-columns: repeat(2, 1fr) !important;
-                        gap: 3mm !important;
-                        page-break-after: always !important;
+
+                    /* 10 Slips or 10 Coupons / A4 Page (5 rows x 2 cols) */
+                    .print-a4-page.10_per_page {
+                        gap: 4mm 8mm !important;
                     }
-                    .print-sheet-container.12_stub_page .food-coupon-card {
-                        height: 44mm !important;
+                    .print-a4-page.10_per_page .print-card-wrapper {
+                        width: 94mm !important;
+                        height: 51mm !important;
+                    }
+
+                    /* 12 Stub Tickets / A4 Page (6 rows x 2 cols) */
+                    .print-a4-page.12_stub_page {
+                        gap: 3mm 8mm !important;
+                    }
+                    .print-a4-page.12_stub_page .print-card-wrapper {
+                        width: 94mm !important;
+                        height: 42mm !important;
                     }
                 }
             `}</style>
