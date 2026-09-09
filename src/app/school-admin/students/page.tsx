@@ -20,7 +20,8 @@ import {
     ChevronRight,
     Users,
     Filter,
-    Trash2
+    Trash2,
+    Scissors
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,6 +49,8 @@ import { Label } from '@/components/ui/label';
 import { Student } from '@/types';
 import { searchStudents, getSchools, getStudentById, deleteStudent, deleteStudentsBatch } from '@/app/actions';
 import StudentDetailsView from '@/components/school-admin/student-details-view';
+import { StudentPhoto } from '@/components/ui/student-photo';
+import { IdCardPhotoRecoveryModal } from '@/components/school-admin/id-card-photo-recovery-modal';
 import { INITIAL_CLASS_SETUPS, INITIAL_SECTIONS } from '@/lib/student-constants';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +61,7 @@ export default function StudentsPage() {
     const [viewMode, setViewMode] = useState<'list' | 'details'>('list');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+    const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
 
     // Filters
     const [classFilter, setClassFilter] = useState<string>('Select');
@@ -693,6 +697,18 @@ export default function StudentsPage() {
                                         )}
                                     </span>
                                 )}
+
+                                {/* Restore Photos from ID Cards Button */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsRecoveryModalOpen(true)}
+                                    className="h-9 gap-1.5 border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 font-bold text-xs shadow-sm transition-all"
+                                    title="Restore student photos by uploading downloaded ID Card ZIP or images"
+                                >
+                                    <Scissors className="w-3.5 h-3.5 text-indigo-600" />
+                                    Restore Photos from ID Cards
+                                </Button>
                             </div>
                             {/* Pagination controls */}
                             <div className="flex items-center gap-2">
@@ -961,15 +977,7 @@ export default function StudentsPage() {
                                 pagedStudents.map((student) => (
                                     <div key={student.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm flex gap-10 relative overflow-hidden transition-all hover:shadow-md group">
                                         <div className="w-32 h-36 bg-[#fcfcfc] rounded-md overflow-hidden flex items-center justify-center border border-gray-200 shrink-0 shadow-inner">
-                                            {student.photo ? (
-                                                <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="bg-gray-100 h-full w-full flex items-center justify-center text-gray-200">
-                                                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                                    </svg>
-                                                </div>
-                                            )}
+                                            <StudentPhoto src={student.photo} alt={student.name} />
                                         </div>
                                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-2 text-[13px]">
                                             <div className="col-span-full mb-3 pb-2 border-b border-gray-50">
@@ -1046,6 +1054,16 @@ export default function StudentsPage() {
                     onUpdate={() => fetchStudents(schoolId, { keyword, classFilter, sectionFilter, sessionId: sessionFilter, status: statusFilter })}
                 />
             )}
+
+            {/* Bulk ID Card Photo Recovery Modal */}
+            <IdCardPhotoRecoveryModal
+                isOpen={isRecoveryModalOpen}
+                onClose={() => setIsRecoveryModalOpen(false)}
+                students={students}
+                onSuccess={() => {
+                    fetchStudents(schoolId, { keyword, classFilter, sectionFilter, sessionId: sessionFilter, status: statusFilter });
+                }}
+            />
 
         </div>
     );

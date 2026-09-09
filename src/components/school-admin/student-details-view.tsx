@@ -37,6 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { StudentPhoto } from '@/components/ui/student-photo';
 
 interface StudentDetailsViewProps {
     student: Student;
@@ -427,16 +428,17 @@ const StudentDetailsView: React.FC<StudentDetailsViewProps> = ({ student, onClos
                         <div className="bg-white p-4 rounded border border-slate-200 shadow-sm mb-4">
                             <div className="flex flex-col items-center pb-6 border-b border-slate-100">
                                 <div className="h-44 w-44 rounded-xl border-4 border-white shadow-xl overflow-hidden bg-slate-50 mb-4 ring-1 ring-slate-200">
-                                    {student.photo ? (
-                                        <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
-                                    ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-slate-300 bg-slate-100 italic text-[10px]">
+                                    <StudentPhoto
+                                        src={student.photo}
+                                        alt={student.name}
+                                        fallbackClassName="h-full w-full flex items-center justify-center text-slate-300 bg-slate-100 italic text-[10px]"
+                                        fallbackIcon={
                                             <div className="flex flex-col items-center gap-2">
                                                 <UserCircle2 size={48} />
                                                 <span>No Photo Available</span>
                                             </div>
-                                        </div>
-                                    )}
+                                        }
+                                    />
                                 </div>
                                 <div className="text-center px-2">
                                     <h4 className="text-[18px] font-bold text-slate-900 leading-tight mb-1 tracking-tight" style={{ fontFamily: "'Playfair Display', 'Georgia', serif" }}>

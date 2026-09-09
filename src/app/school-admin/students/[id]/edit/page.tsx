@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import StudentRegistrationForm from '@/components/school-admin/student-registration-form';
 import { getStudentById } from '@/app/actions';
 import { Student } from '@/types';
+import { StudentPhoto } from '@/components/ui/student-photo';
 
 export default function EditStudentPage() {
     const router = useRouter();
@@ -77,17 +78,14 @@ export default function EditStudentPage() {
                     </Button>
                     <div className="w-px h-6 bg-slate-200" />
                     <div className="flex items-center gap-3">
-                        {student.photo ? (
-                            <img
+                        <div className="h-9 w-9 rounded-xl overflow-hidden border border-slate-200">
+                            <StudentPhoto
                                 src={student.photo}
                                 alt={student.name}
-                                className="h-9 w-9 rounded-xl object-cover border border-slate-100"
+                                fallbackClassName="h-full w-full bg-indigo-50 flex items-center justify-center border border-indigo-100"
+                                fallbackIcon={<User className="w-5 h-5 text-indigo-400" />}
                             />
-                        ) : (
-                            <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                                <User className="w-5 h-5 text-indigo-400" />
-                            </div>
-                        )}
+                        </div>
                         <div>
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Editing Profile</p>
                             <h1 className="text-sm font-black text-slate-900">{student.name}</h1>
