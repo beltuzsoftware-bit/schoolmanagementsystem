@@ -37,6 +37,7 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/data.json ./data.json
+RUN mkdir -p /app/data-images
 
 # Grant write ownership to unprivileged nextjs runner for mock database file write access
 RUN chown -R nextjs:nodejs /app

@@ -294,7 +294,31 @@ export function readDb(): DatabaseSchema {
 // IMPORTANT: Images are saved to data-images/ (next to data.json on the persistent volume),
 // NOT to public/images/ (which is inside the Docker container and gets wiped on each redeploy).
 // Images are served via the /api/images/[...path] route.
-const DATA_IMAGES_DIR = path.resolve(path.dirname(DB_PATH), 'data-images');
+export const DATA_IMAGES_DIR = path.resolve(path.dirname(DB_PATH), 'data-images');
+
+export function saveBase64Image(
+    base64Data: string,
+    subDir: string,
+    id: string,
+    suffix = 'photo'
+): string {
+    if (!base64Data || !base64Data.startsWith('data:image/')) {
+        return base64Data;
+    }
+    try {
+        const dir = path.join(DATA_IMAGES_DIR, subDir);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const match = base64Data.match(/^data:image\/(\w+);base64,/);
+        const ext = match ? match[1] : 'png';
+        const filename = `${id}-${suffix}.${ext}`;
+        const filePath = path.join(dir, filename);
+        fs.writeFileSync(filePath, Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+        return `/api/images/${subDir}/${filename}`;
+    } catch (e) {
+        console.error(`[saveBase64Image] Error saving ${subDir}/${id}:`, e);
+        return base64Data;
+    }
+}
 
 function extractBase64Field(
     items: any[],
@@ -303,19 +327,9 @@ function extractBase64Field(
     idField: string,
     urlPrefix: string
 ): any[] {
-    const dir = path.join(DATA_IMAGES_DIR, subDir);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     return items.map((item: any) => {
         if (item[field] && item[field].startsWith('data:image/')) {
-            try {
-                const match = item[field].match(/^data:image\/(\w+);base64,/);
-                const ext = match ? match[1] : 'png';
-                const filename = `${item[idField]}-${urlPrefix}.${ext}`;
-                fs.writeFileSync(path.join(dir, filename), Buffer.from(item[field].replace(/^data:image\/\w+;base64,/, ''), 'base64'));
-                item[field] = `/api/images/${subDir}/${filename}`;
-            } catch (e) {
-                console.error(`[writeDb] Failed to extract ${subDir} ${field}:`, e);
-            }
+            item[field] = saveBase64Image(item[field], subDir, item[idField], urlPrefix);
         }
         return item;
     });

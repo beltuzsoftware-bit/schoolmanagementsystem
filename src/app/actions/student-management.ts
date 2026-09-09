@@ -1,6 +1,6 @@
 'use server';
 
-import { readDb, writeDb } from '@/lib/db';
+import { readDb, writeDb, saveBase64Image } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import { 
     Student, StudentProfileTemplate, StudentFormConfig, Session,
@@ -445,9 +445,33 @@ export async function addStudent(studentData: Partial<Student>) {
             });
         }
 
+        // Persist base64 photos to data-images/ disk volume
+        if (finalStudentData.photo && finalStudentData.photo.startsWith('data:image/')) {
+            finalStudentData.photo = saveBase64Image(finalStudentData.photo, 'students', finalStudentData.id, 'photo');
+        }
+        if (finalStudentData.fatherPhoto && finalStudentData.fatherPhoto.startsWith('data:image/')) {
+            finalStudentData.fatherPhoto = saveBase64Image(finalStudentData.fatherPhoto, 'students', finalStudentData.id, 'father');
+        }
+        if (finalStudentData.motherPhoto && finalStudentData.motherPhoto.startsWith('data:image/')) {
+            finalStudentData.motherPhoto = saveBase64Image(finalStudentData.motherPhoto, 'students', finalStudentData.id, 'mother');
+        }
+        if (finalStudentData.guardianPhoto && finalStudentData.guardianPhoto.startsWith('data:image/')) {
+            finalStudentData.guardianPhoto = saveBase64Image(finalStudentData.guardianPhoto, 'students', finalStudentData.id, 'guardian');
+        }
+
         const newStudent = await prisma.student.create({
             data: sanitizeStudentForPrisma(finalStudentData)
         });
+
+        // Sync to JSON DB for hybrid parity
+        try {
+            const db = readDb();
+            if (!db.students) db.students = [];
+            db.students.push(finalStudentData);
+            writeDb(db);
+        } catch (jsonErr) {
+            console.warn('[ADD_STUDENT] JSON sync skipped:', jsonErr);
+        }
 
         revalidatePath('/school-admin/students');
         return { success: true, student: newStudent as any };
@@ -498,10 +522,36 @@ export async function updateStudent(id: string, data: Partial<Student>) {
         delete sanitizedData.id;
         delete sanitizedData.schoolId;
 
+        // Persist base64 photos to data-images/ disk volume
+        if (sanitizedData.photo && sanitizedData.photo.startsWith('data:image/')) {
+            sanitizedData.photo = saveBase64Image(sanitizedData.photo, 'students', id, 'photo');
+        }
+        if (sanitizedData.fatherPhoto && sanitizedData.fatherPhoto.startsWith('data:image/')) {
+            sanitizedData.fatherPhoto = saveBase64Image(sanitizedData.fatherPhoto, 'students', id, 'father');
+        }
+        if (sanitizedData.motherPhoto && sanitizedData.motherPhoto.startsWith('data:image/')) {
+            sanitizedData.motherPhoto = saveBase64Image(sanitizedData.motherPhoto, 'students', id, 'mother');
+        }
+        if (sanitizedData.guardianPhoto && sanitizedData.guardianPhoto.startsWith('data:image/')) {
+            sanitizedData.guardianPhoto = saveBase64Image(sanitizedData.guardianPhoto, 'students', id, 'guardian');
+        }
+
         await prisma.student.update({
             where: { id },
             data: sanitizedData
         });
+
+        // Sync to JSON DB for hybrid parity
+        try {
+            const db = readDb();
+            const sIdx = (db.students || []).findIndex((s: any) => s.id === id);
+            if (sIdx !== -1) {
+                db.students[sIdx] = { ...db.students[sIdx], ...sanitizedData };
+                writeDb(db);
+            }
+        } catch (jsonErr) {
+            console.warn('[UPDATE_STUDENT] JSON sync skipped:', jsonErr);
+        }
 
         try {
             revalidatePath('/school-admin/students');

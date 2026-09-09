@@ -13,6 +13,18 @@ const nextConfig: NextConfig = {
     },
   },
 
+  // Transparently fallback any missing /images/... static requests to persistent /api/images/... route
+  async rewrites() {
+    return {
+      fallback: [
+        {
+          source: '/images/:path*',
+          destination: '/api/images/:path*',
+        },
+      ],
+    };
+  },
+
   // Security headers for production
   async headers() {
     return [

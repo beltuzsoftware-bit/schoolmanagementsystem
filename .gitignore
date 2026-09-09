@@ -46,6 +46,7 @@ data.json
 data.json.*
 *.bak
 scratch.json
+data-images/
 
 # Backup archives
 /backups/

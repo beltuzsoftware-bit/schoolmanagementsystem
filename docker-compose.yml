@@ -12,6 +12,7 @@ services:
     user: "0:0"
     volumes:
       - ./data.json:/app/data.json
+      - ./data-images:/app/data-images
     env_file:
       - .env
     environment:

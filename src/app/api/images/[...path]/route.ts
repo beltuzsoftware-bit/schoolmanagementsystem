@@ -19,34 +19,54 @@ export async function GET(
         const safe = imagePath.replace(/\.\./g, '').replace(/^\/+/, '');
         const fullPath = path.resolve(DATA_IMAGES_DIR, safe);
 
-        if (!fs.existsSync(fullPath)) {
-            // Self-healing fallback: search public/images/ and copy to DATA_IMAGES_DIR
-            const filename = path.basename(safe);
-            const candidates = [
-                path.resolve(process.cwd(), 'public/images', safe),
-                path.resolve(process.cwd(), '.next/standalone/public/images', safe),
-            ];
+        let targetFile: string | null = fs.existsSync(fullPath) ? fullPath : null;
 
-            let foundFile: string | null = null;
-            for (const cand of candidates) {
-                if (fs.existsSync(cand)) {
-                    foundFile = cand;
+        if (!targetFile) {
+            const filename = path.basename(safe);
+            const subDirs = ['students', 'staff', 'schools', 'templates', 'users'];
+
+            // 1. Check if it exists in another subdirectory within DATA_IMAGES_DIR
+            for (const sub of subDirs) {
+                const altPath = path.resolve(DATA_IMAGES_DIR, sub, filename);
+                if (fs.existsSync(altPath)) {
+                    targetFile = altPath;
                     break;
                 }
             }
 
-            if (foundFile) {
-                // Auto-persist to DATA_IMAGES_DIR so it survives future container redeploys
-                const parentDir = path.dirname(fullPath);
-                if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
-                fs.copyFileSync(foundFile, fullPath);
-            } else {
-                return new NextResponse(null, { status: 404 });
+            // 2. Self-healing fallback: search public/images/ and copy to DATA_IMAGES_DIR
+            if (!targetFile) {
+                const candidates = [
+                    path.resolve(process.cwd(), 'public/images', safe),
+                    path.resolve(process.cwd(), 'public', safe),
+                    path.resolve(process.cwd(), '.next/standalone/public/images', safe),
+                    path.resolve(process.cwd(), '.next/standalone/public', safe),
+                    ...subDirs.map(s => path.resolve(process.cwd(), 'public/images', s, filename)),
+                    ...subDirs.map(s => path.resolve(process.cwd(), '.next/standalone/public/images', s, filename)),
+                ];
+
+                for (const cand of candidates) {
+                    if (fs.existsSync(cand)) {
+                        const parentDir = path.dirname(fullPath);
+                        if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+                        try {
+                            fs.copyFileSync(cand, fullPath);
+                            targetFile = fullPath;
+                        } catch {
+                            targetFile = cand;
+                        }
+                        break;
+                    }
+                }
             }
         }
 
-        const buffer = fs.readFileSync(fullPath);
-        const ext = path.extname(fullPath).toLowerCase().replace('.', '');
+        if (!targetFile) {
+            return new NextResponse(null, { status: 404 });
+        }
+
+        const buffer = fs.readFileSync(targetFile);
+        const ext = path.extname(targetFile).toLowerCase().replace('.', '');
         const mimeMap: Record<string, string> = {
             jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
             webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml',
