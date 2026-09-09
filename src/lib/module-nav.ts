@@ -37,6 +37,8 @@ export const MODULE_NAV_MAP: Record<string, NavItemType> = {
         icon: 'BookOpen',
         children: [
             { title: 'Subjects', href: '/school-admin/academics/subjects' },
+            { title: 'Exam Admit Cards', href: '/school-admin/academics/admit-cards' },
+            { title: 'Certificates (TC & Merit)', href: '/school-admin/academics/certificates' },
         ]
     },
     m6: {

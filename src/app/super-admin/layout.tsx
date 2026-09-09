@@ -28,6 +28,7 @@ const navItems = [
     { title: 'Users', href: '/super-admin/users', icon: 'Users' },
     { title: 'Reports', href: '/super-admin/reports', icon: 'LineChart' },
     { title: 'Backup & Restore', href: '/super-admin/backup', icon: 'Database' },
+    { title: 'System Health & Storage', href: '/super-admin/system-health', icon: 'HardDrive' },
     { title: 'Settings', href: '/super-admin/settings', icon: 'Settings' },
 ];
 

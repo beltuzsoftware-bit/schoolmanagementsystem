@@ -15,7 +15,7 @@ import {
 import { ClassSetup, RegNoSettings, EnrollmentNoSettings, AutoIdSettings } from '@/types/student-settings';
 
 // Triggering hot-reload to load updated INITIAL_CLASS_SETUPS
-const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'data.json');
+export const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'data.json');
 
 // Define the shape of our database
 interface DatabaseSchema {

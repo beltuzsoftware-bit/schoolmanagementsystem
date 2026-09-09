@@ -21,7 +21,8 @@ import {
     Users,
     Filter,
     Trash2,
-    Scissors
+    Scissors,
+    Camera
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -51,6 +52,7 @@ import { searchStudents, getSchools, getStudentById, deleteStudent, deleteStuden
 import StudentDetailsView from '@/components/school-admin/student-details-view';
 import { StudentPhoto } from '@/components/ui/student-photo';
 import { IdCardPhotoRecoveryModal } from '@/components/school-admin/id-card-photo-recovery-modal';
+import { PassportPhotoCropModal } from '@/components/school-admin/passport-photo-crop-modal';
 import { INITIAL_CLASS_SETUPS, INITIAL_SECTIONS } from '@/lib/student-constants';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +64,7 @@ export default function StudentsPage() {
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isFetchingProfile, setIsFetchingProfile] = useState(false);
     const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+    const [isPassportCropOpen, setIsPassportCropOpen] = useState(false);
 
     // Filters
     const [classFilter, setClassFilter] = useState<string>('Select');
@@ -707,7 +710,19 @@ export default function StudentsPage() {
                                     title="Restore student photos by uploading downloaded ID Card ZIP or images"
                                 >
                                     <Scissors className="w-3.5 h-3.5 text-indigo-600" />
-                                    Restore Photos from ID Cards
+                                    Restore from ID Cards
+                                </Button>
+
+                                {/* Passport Photo Crop & Upload Button */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsPassportCropOpen(true)}
+                                    className="h-9 gap-1.5 border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-700 font-bold text-xs shadow-sm transition-all"
+                                    title="Upload and crop student passport photo (35x45 mm)"
+                                >
+                                    <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                                    Crop & Upload Photo
                                 </Button>
                             </div>
                             {/* Pagination controls */}
@@ -1059,6 +1074,16 @@ export default function StudentsPage() {
             <IdCardPhotoRecoveryModal
                 isOpen={isRecoveryModalOpen}
                 onClose={() => setIsRecoveryModalOpen(false)}
+                students={students}
+                onSuccess={() => {
+                    fetchStudents(schoolId, { keyword, classFilter, sectionFilter, sessionId: sessionFilter, status: statusFilter });
+                }}
+            />
+
+            {/* Passport Photo Cropper Modal */}
+            <PassportPhotoCropModal
+                isOpen={isPassportCropOpen}
+                onClose={() => setIsPassportCropOpen(false)}
                 students={students}
                 onSuccess={() => {
                     fetchStudents(schoolId, { keyword, classFilter, sectionFilter, sessionId: sessionFilter, status: statusFilter });

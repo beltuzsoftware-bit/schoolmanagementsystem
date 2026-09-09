@@ -67,6 +67,7 @@ function IDCardsPageContent() {
     const [generateTemplate, setGenerateTemplate] = useState<string>("");
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+    const [zipMode, setZipMode] = useState<'individual' | 'a4'>('individual');
     const [studentsToZip, setStudentsToZip] = useState<Student[]>([]);
     const [validityDate, setValidityDate] = useState<string>("");
     const [printLayoutMode, setPrintLayoutMode] = useState<'sheet10' | 'grid2'>('sheet10');
@@ -818,11 +819,12 @@ function IDCardsPageContent() {
         setStudentsToPrint(toPrint);
     };
 
-    const handleDownloadZip = () => {
+    const handleDownloadZip = (mode: 'individual' | 'a4' = 'individual') => {
         const sourceList = generateMode === 'staff' ? staffList : students;
         const toDownload = sourceList.filter(s => selectedStudentIds.has(s.id));
         if (toDownload.length === 0) { toast.error(`Please select at least one ${generateMode === 'staff' ? 'staff member' : 'student'}`); return; }
         if (!generateTemplate) { toast.error('Please select a template'); return; }
+        setZipMode(mode);
         setIsDownloadingZip(true);
         setStudentsToZip(toDownload); // triggers useEffect below
     };
@@ -868,6 +870,8 @@ function IDCardsPageContent() {
                 const wrappers = Array.from(
                     container.querySelectorAll('[data-zip-student-id]')
                 ) as HTMLElement[];
+
+                const renderedCards: { canvas: HTMLCanvasElement; student: Student }[] = [];
 
                 for (let i = 0; i < wrappers.length; i++) {
                     const wrapper = wrappers[i];
@@ -970,38 +974,100 @@ function IDCardsPageContent() {
                         ctx.restore();
                     }
 
-                    const blob = await new Promise<Blob>(res =>
-                        canvas.toBlob(b => res(b!), 'image/png')
-                    );
+                        if (zipMode === 'individual') {
+                            const blob = await new Promise<Blob>(res =>
+                                canvas.toBlob(b => res(b!), 'image/png')
+                            );
+                            const safeName = (student.name || student.firstName || `Student_${i + 1}`)
+                                .replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_');
+                            const rawAdm = student.admissionNumber ? `_${student.admissionNumber}` : '';
+                            const safeAdm = rawAdm.replace(/[^a-zA-Z0-9 _-]/g, '_').trim().replace(/\s+/g, '_');
+                            zip.file(`${i + 1}_${safeName}${safeAdm}_IDCard.png`, blob);
+                        } else {
+                            // Store canvas for A4 sheet tiling
+                            renderedCards.push({ canvas, student });
+                        }
+                    }
 
-                    const safeName = (student.name || student.firstName || `Student_${i + 1}`)
-                        .replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_');
-                    const rawAdm = student.admissionNumber ? `_${student.admissionNumber}` : '';
-                    const safeAdm = rawAdm.replace(/[^a-zA-Z0-9 _-]/g, '_').trim().replace(/\s+/g, '_');
-                    zip.file(`${i + 1}_${safeName}${safeAdm}_IDCard.png`, blob);
+                    // If A4 Sheet mode: composite 10 cards per A4 page (2 cols x 5 rows)
+                    if (zipMode === 'a4') {
+                        const CARDS_PER_SHEET = 10;
+                        const totalSheets = Math.ceil(renderedCards.length / CARDS_PER_SHEET);
+
+                        for (let sheetIdx = 0; sheetIdx < totalSheets; sheetIdx++) {
+                            const sheetCards = renderedCards.slice(sheetIdx * CARDS_PER_SHEET, (sheetIdx + 1) * CARDS_PER_SHEET);
+                            const a4 = document.createElement('canvas');
+                            // A4 portrait at 300 DPI: 2480 x 3508
+                            a4.width = 2480;
+                            a4.height = 3508;
+                            const a4Ctx = a4.getContext('2d')!;
+
+                            // White background
+                            a4Ctx.fillStyle = '#ffffff';
+                            a4Ctx.fillRect(0, 0, a4.width, a4.height);
+
+                            // Header text
+                            a4Ctx.fillStyle = '#0f172a';
+                            a4Ctx.font = 'bold 36px sans-serif';
+                            a4Ctx.fillText(`ID CARDS — A4 PRINT SHEET (PAGE ${sheetIdx + 1} OF ${totalSheets})`, 100, 80);
+                            a4Ctx.font = '24px sans-serif';
+                            a4Ctx.fillStyle = '#64748b';
+                            a4Ctx.fillText(`Cut along the dashed lines • 10 Cards / Sheet • Generated via KuMMi School System`, 100, 120);
+
+                            const startX = 100;
+                            const startY = 160;
+                            const colW = 1100;
+                            const rowH = 630;
+
+                            for (let cIdx = 0; cIdx < sheetCards.length; cIdx++) {
+                                const cardItem = sheetCards[cIdx];
+                                const col = cIdx % 2;
+                                const row = Math.floor(cIdx / 2);
+                                const x = startX + col * (colW + 80);
+                                const y = startY + row * (rowH + 30);
+
+                                // Dotted cutting line around card
+                                a4Ctx.save();
+                                a4Ctx.setLineDash([12, 12]);
+                                a4Ctx.strokeStyle = '#94a3b8';
+                                a4Ctx.lineWidth = 2;
+                                a4Ctx.strokeRect(x, y, colW, rowH);
+                                a4Ctx.restore();
+
+                                // Draw card
+                                a4Ctx.drawImage(cardItem.canvas, x + 10, y + 10, colW - 20, rowH - 20);
+                            }
+
+                            const a4Blob = await new Promise<Blob>(res => a4.toBlob(b => res(b!), 'image/png'));
+                            zip.file(`Page_${sheetIdx + 1}_A4_Sheet_10Cards.png`, a4Blob);
+                        }
+                    }
+
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(zipBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const zipTitle = getIDCardsPDFTitle(studentsToZip, generateMode);
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    a.download = zipMode === 'a4'
+                        ? `${zipTitle}_A4_Print_Sheets_${dateStr}.zip`
+                        : `${zipTitle}_${dateStr}.zip`;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    toast.success(zipMode === 'a4'
+                        ? `✅ Downloaded A4 print sheets containing ${studentsToZip.length} ID cards!`
+                        : `✅ Downloaded ${studentsToZip.length} ID cards as ZIP!`);
+                } catch (err) {
+                    console.error('ZIP generation failed:', err);
+                    toast.error('Failed to generate ZIP. Please try again.');
+                } finally {
+                    // Restore off-screen position
+                    const c = document.getElementById('zip-render-container');
+                    if (c) { c.style.left = '-9999px'; c.style.top = '0'; }
+                    setStudentsToZip([]);
+                    setIsDownloadingZip(false);
                 }
-
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
-                const url = URL.createObjectURL(zipBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                const zipTitle = getIDCardsPDFTitle(studentsToZip, generateMode);
-                const dateStr = new Date().toISOString().slice(0, 10);
-                a.download = `${zipTitle}_${dateStr}.zip`;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-                toast.success(`✅ Downloaded ${studentsToZip.length} ID card${studentsToZip.length > 1 ? 's' : ''} as ZIP!`);
-            } catch (err) {
-                console.error('ZIP generation failed:', err);
-                toast.error('Failed to generate ZIP. Please try again.');
-            } finally {
-                // Restore off-screen position
-                const c = document.getElementById('zip-render-container');
-                if (c) { c.style.left = '-9999px'; c.style.top = '0'; }
-                setStudentsToZip([]);
-                setIsDownloadingZip(false);
-            }
-        };
+            };
 
         // Small delay so React finishes rendering the zip container
         const timer = setTimeout(capture, 200);
@@ -1450,12 +1516,25 @@ function IDCardsPageContent() {
                                 variant="outline"
                                 className="w-full gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
                                 disabled={selectedStudentIds.size === 0 || !generateTemplate || isDownloadingZip}
-                                onClick={handleDownloadZip}
+                                onClick={() => handleDownloadZip('individual')}
                             >
-                                {isDownloadingZip ? (
+                                {isDownloadingZip && zipMode === 'individual' ? (
                                     <><Loader2 className="h-4 w-4 animate-spin" /> Generating ZIP...</>
                                 ) : (
                                     <><Download className="h-4 w-4" /> Download ZIP ({selectedStudentIds.size})</>
+                                )}
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-bold"
+                                disabled={selectedStudentIds.size === 0 || !generateTemplate || isDownloadingZip}
+                                onClick={() => handleDownloadZip('a4')}
+                            >
+                                {isDownloadingZip && zipMode === 'a4' ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating A4 Sheets...</>
+                                ) : (
+                                    <><Printer className="h-4 w-4 text-emerald-600" /> Download A4 Sheets (10/Sheet)</>
                                 )}
                             </Button>
                         </CardContent>
