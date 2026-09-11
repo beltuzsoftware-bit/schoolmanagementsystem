@@ -60,9 +60,9 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
     const [studentPool, setStudentPool] = useState<Student[]>([]);
 
     // Crop box percentages (relative to the full card image)
-    // Default optimized for "Heritage Model | horizontal | 86x54 mm"
-    const [cropX, setCropX] = useState<number>(4);      // left %
-    const [cropY, setCropY] = useState<number>(20);     // top %
+    // Default optimized for "Heritage Model" where student portrait is on the RIGHT
+    const [cropX, setCropX] = useState<number>(68);     // left %
+    const [cropY, setCropY] = useState<number>(24);     // top %
     const [cropW, setCropW] = useState<number>(26);     // width %
     const [cropH, setCropH] = useState<number>(56);     // height %
 
@@ -613,16 +613,28 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                                     )}
                                 </div>
 
-                                <div className="relative border border-slate-300 rounded-lg overflow-hidden bg-slate-900 shadow-sm flex items-center justify-center p-2">
-                                    <div className="relative inline-block max-w-full">
+                                <div className="relative border border-slate-300 rounded-lg overflow-hidden bg-slate-950 shadow-sm flex flex-col items-center justify-center p-3">
+                                    <div 
+                                        className="relative inline-block max-w-full cursor-crosshair select-none"
+                                        title="Click anywhere on the photo to snap the crop box!"
+                                        onClick={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+                                            const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+                                            const newX = Math.max(0, Math.min(100 - cropW, Math.round(clickX - cropW / 2)));
+                                            const newY = Math.max(0, Math.min(100 - cropH, Math.round(clickY - cropH / 2)));
+                                            setCropX(newX);
+                                            setCropY(newY);
+                                        }}
+                                    >
                                         <img
                                             src={currentSample.dataUrl}
                                             alt="Sample Card"
-                                            className="max-h-60 w-auto rounded border border-slate-700 block"
+                                            className="max-h-64 w-auto rounded border border-slate-700 block pointer-events-none"
                                         />
                                         {/* Highlight Crop Box */}
                                         <div
-                                            className="absolute border-2 border-red-500 bg-red-500/20 pointer-events-none rounded shadow-sm"
+                                            className="absolute border-2 border-emerald-400 bg-emerald-400/20 pointer-events-none rounded shadow-md transition-all duration-75"
                                             style={{
                                                 left: `${cropX}%`,
                                                 top: `${cropY}%`,
@@ -630,43 +642,52 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                                                 height: `${cropH}%`,
                                             }}
                                         >
-                                            <span className="absolute -top-5 left-0 bg-red-600 text-white text-[9px] font-bold px-1 rounded">
-                                                Photo
+                                            <span className="absolute -top-5 left-0 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow">
+                                                Photo Area
                                             </span>
                                         </div>
                                     </div>
+                                    <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1 font-medium">
+                                        <Sparkles className="w-3 h-3 text-amber-400" /> Click directly on the student's face above to move the crop box instantly!
+                                    </p>
                                 </div>
                             </div>
 
                             {/* Live Result Thumbnail & Sliders */}
                             <div className="space-y-4">
                                 <div>
-                                    <Label className="text-xs font-bold text-slate-700 block mb-1.5">Cropped Face Preview</Label>
-                                    <div className="w-28 h-32 rounded-xl border-2 border-indigo-200 overflow-hidden bg-slate-100 flex items-center justify-center shadow-inner mx-auto">
+                                    <Label className="text-xs font-bold text-slate-700 block mb-1.5 text-center">Cropped Face Preview</Label>
+                                    <div className="w-28 h-36 rounded-xl border-2 border-emerald-400 overflow-hidden bg-slate-100 flex items-center justify-center shadow-md mx-auto">
                                         {croppedPreviewUrl ? (
                                             <img src={croppedPreviewUrl} alt="Cropped" className="w-full h-full object-cover" />
                                         ) : (
                                             <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
                                         )}
                                     </div>
+                                    <p className="text-[10px] text-center text-slate-500 mt-1 font-semibold">
+                                        Saved as profile photo
+                                    </p>
                                 </div>
 
                                 {/* Preset Selector */}
                                 <div className="space-y-1">
-                                    <Label className="text-[11px] font-bold text-slate-600">Template Preset</Label>
+                                    <Label className="text-[11px] font-bold text-slate-600">Template Layout Preset</Label>
                                     <select
                                         className="w-full text-xs font-semibold p-1.5 border border-slate-200 rounded-lg bg-white"
                                         onChange={(e) => {
-                                            if (e.target.value === 'heritage') {
-                                                setCropX(4); setCropY(20); setCropW(26); setCropH(56);
+                                            if (e.target.value === 'heritage_right') {
+                                                setCropX(68); setCropY(24); setCropW(26); setCropH(56);
+                                            } else if (e.target.value === 'photo_left') {
+                                                setCropX(4); setCropY(22); setCropW(26); setCropH(56);
                                             } else if (e.target.value === 'vertical') {
                                                 setCropX(25); setCropY(12); setCropW(50); setCropH(38);
                                             }
                                         }}
                                     >
-                                        <option value="heritage">Heritage Model (Horizontal 86×54 mm)</option>
-                                        <option value="vertical">Vertical ID Card (54×86 mm)</option>
-                                        <option value="custom">Custom Sliders</option>
+                                        <option value="heritage_right">Heritage Model (Photo on Right)</option>
+                                        <option value="photo_left">Horizontal (Photo on Left)</option>
+                                        <option value="vertical">Vertical ID Card (Photo Centered)</option>
+                                        <option value="custom">Custom Adjustments</option>
                                     </select>
                                 </div>
 
@@ -677,16 +698,16 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                                         <span>Top: {cropY}%</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input type="range" min="0" max="60" value={cropX} onChange={e => setCropX(Number(e.target.value))} className="w-full h-1" />
-                                        <input type="range" min="0" max="60" value={cropY} onChange={e => setCropY(Number(e.target.value))} className="w-full h-1" />
+                                        <input type="range" min="0" max="85" value={cropX} onChange={e => setCropX(Number(e.target.value))} className="w-full h-1 accent-indigo-600" />
+                                        <input type="range" min="0" max="85" value={cropY} onChange={e => setCropY(Number(e.target.value))} className="w-full h-1 accent-indigo-600" />
                                     </div>
                                     <div className="flex justify-between font-bold text-slate-600 pt-1">
                                         <span>Width: {cropW}%</span>
                                         <span>Height: {cropH}%</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input type="range" min="10" max="50" value={cropW} onChange={e => setCropW(Number(e.target.value))} className="w-full h-1" />
-                                        <input type="range" min="10" max="80" value={cropH} onChange={e => setCropH(Number(e.target.value))} className="w-full h-1" />
+                                        <input type="range" min="10" max="60" value={cropW} onChange={e => setCropW(Number(e.target.value))} className="w-full h-1 accent-indigo-600" />
+                                        <input type="range" min="15" max="85" value={cropH} onChange={e => setCropH(Number(e.target.value))} className="w-full h-1 accent-indigo-600" />
                                     </div>
                                 </div>
                             </div>
