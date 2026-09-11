@@ -297,7 +297,7 @@ export default function BackupPage() {
                                                 <TableCell className="pr-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-1.5">
                                                         {/* Download Link */}
-                                                        <a href={`/${b.name}`} download={b.name}>
+                                                        <a href={`/api/backup/download?file=${encodeURIComponent(b.name)}`} download={b.name}>
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"

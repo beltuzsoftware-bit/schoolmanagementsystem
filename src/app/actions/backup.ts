@@ -43,26 +43,77 @@ export async function getBackups(): Promise<BackupFile[]> {
     }
 }
 
-// 2. Create Portable Backup
+// 2. Create Portable Backup (Pure Node.js + JSZip, 100% cross-platform)
 export async function createBackup() {
     try {
-        // Run create_portable_backup.ps1 using powershell
-        // We pipe an empty string into the powershell execution. This automatically satisfies the 'Pause'
-        // statement at the end of the script, preventing it from hanging forever in non-interactive environments!
-        const command = 'echo "" | powershell -NoProfile -ExecutionPolicy Bypass -File create_portable_backup.ps1';
-        
-        const { stdout, stderr } = await execPromise(command, { cwd: process.cwd() });
-        console.log('Backup Script Output:', stdout);
-        
-        if (stderr && !stderr.includes('Warning')) {
-            console.error('Backup Script Stderr:', stderr);
+        const rootDir = process.cwd();
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+
+        // 1. If scripts/export-db.cjs exists and DATABASE_URL is set, run it using node
+        if (fs.existsSync(path.join(rootDir, 'scripts', 'export-db.cjs')) && process.env.DATABASE_URL) {
+            try {
+                const { exec } = await import('child_process');
+                const util = await import('util');
+                const execPromise = util.promisify(exec);
+                await execPromise('node scripts/export-db.cjs', { cwd: rootDir });
+            } catch (err) {
+                console.warn('[Backup] Database export script skipped or returned error:', err);
+            }
         }
 
+        // 2. Include data.json
+        const dataJsonPath = path.join(rootDir, 'data.json');
+        if (fs.existsSync(dataJsonPath)) {
+            const dataBuffer = await fs.promises.readFile(dataJsonPath);
+            zip.file('data.json', dataBuffer);
+        } else {
+            return { success: false, error: 'data.json not found to backup' };
+        }
+
+        // 3. Include data-images directory recursively if present
+        const dataImagesPath = path.join(rootDir, 'data-images');
+        if (fs.existsSync(dataImagesPath)) {
+            const addFolderRecursively = async (currentPath: string, zipFolder: any) => {
+                const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(currentPath, entry.name);
+                    if (entry.isDirectory()) {
+                        await addFolderRecursively(fullPath, zipFolder.folder(entry.name));
+                    } else {
+                        const fileBuffer = await fs.promises.readFile(fullPath);
+                        zipFolder.file(entry.name, fileBuffer);
+                    }
+                }
+            };
+            await addFolderRecursively(dataImagesPath, zip.folder('data-images'));
+        }
+
+        // 4. Include backup config
+        if (fs.existsSync(CONFIG_PATH)) {
+            zip.file('backup-config.json', await fs.promises.readFile(CONFIG_PATH));
+        }
+
+        // 5. Generate ZIP
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const zipFilename = `KuMMi_Portable_Backup_${dateStr}.zip`;
+        const zipFilePath = path.join(rootDir, zipFilename);
+
+        const zipBuffer = await zip.generateAsync({
+            type: 'nodebuffer',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        });
+
+        await fs.promises.writeFile(zipFilePath, zipBuffer);
+
         revalidatePath('/super-admin/backup');
-        return { success: true, message: 'Portable backup created successfully' };
+        return { success: true, message: `Backup archive created: ${zipFilename}` };
     } catch (error: any) {
-        console.error('Failed to create backup:', error);
-        return { success: false, error: error.message || 'Backup script execution failed' };
+        console.error('[Backup] Failed to create backup:', error);
+        return { success: false, error: error.message || 'Backup creation failed' };
     }
 }
 
@@ -86,7 +137,7 @@ export async function deleteBackup(filename: string) {
     }
 }
 
-// 4. Restore Backup
+// 4. Restore Backup (Pure Node.js + JSZip)
 export async function restoreBackup(filename: string) {
     try {
         if (!filename.startsWith('KuMMi_Portable_Backup_') || !filename.endsWith('.zip')) {
@@ -100,39 +151,54 @@ export async function restoreBackup(filename: string) {
             return { success: false, error: 'Backup file not found' };
         }
 
+        const JSZip = (await import('jszip')).default;
+        const zipData = await fs.promises.readFile(zipPath);
+        const zip = await JSZip.loadAsync(zipData);
+
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        
-        // Construct clean PowerShell command sequence to:
-        // 1. Create a safety backup of data.json
-        // 2. Extract backup zip to a temporary folder
-        // 3. Copy files back into the root workspace
-        // 4. Run database migration sync
-        // 5. Clean up temporary folder
-        const psCommand = `
-            if (Test-Path "data.json") {
-                Copy-Item -Path "data.json" -Destination "data.json.before_restore_${timestamp}.json" -Force
+
+        // 1. Safety backup of data.json before restore
+        const currentDataPath = path.join(rootDir, 'data.json');
+        if (fs.existsSync(currentDataPath)) {
+            await fs.promises.copyFile(
+                currentDataPath,
+                path.join(rootDir, `data.json.before_restore_${timestamp}.json`)
+            );
+        }
+
+        // 2. Extract entries from zip
+        for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+            const destPath = path.join(rootDir, relativePath);
+            if (zipEntry.dir) {
+                if (!fs.existsSync(destPath)) {
+                    fs.mkdirSync(destPath, { recursive: true });
+                }
+            } else {
+                const parentDir = path.dirname(destPath);
+                if (!fs.existsSync(parentDir)) {
+                    fs.mkdirSync(parentDir, { recursive: true });
+                }
+                const content = await zipEntry.async('nodebuffer');
+                await fs.promises.writeFile(destPath, content);
             }
-            if (Test-Path "temp_restore") { Remove-Item -Path "temp_restore" -Recurse -Force }
-            Expand-Archive -Path "${filename}" -DestinationPath "temp_restore" -Force
-            Copy-Item -Path "temp_restore\\*" -Destination "." -Recurse -Force
-            Remove-Item -Path "temp_restore" -Recurse -Force
-        `.trim().replace(/\n/g, ' ; ');
+        }
 
-        console.log('Executing PowerShell Restore Operations...');
-        await execPromise(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`, { cwd: rootDir });
-
-        console.log('Syncing database tables with restored JSON...');
-        if (fs.existsSync(path.join(rootDir, 'scripts', 'migrate-data.cjs'))) {
-            const { stdout } = await execPromise('node scripts/migrate-data.cjs', { cwd: rootDir });
-            console.log('Database Migration Output:', stdout);
-        } else {
-            console.warn('migrate-data.cjs script not found during restoration');
+        // 3. Sync database tables if migrate-data.cjs exists
+        if (fs.existsSync(path.join(rootDir, 'scripts', 'migrate-data.cjs')) && process.env.DATABASE_URL) {
+            try {
+                const { exec } = await import('child_process');
+                const util = await import('util');
+                const execPromise = util.promisify(exec);
+                await execPromise('node scripts/migrate-data.cjs', { cwd: rootDir });
+            } catch (err) {
+                console.warn('[Backup Restore] migrate-data.cjs output:', err);
+            }
         }
 
         revalidatePath('/super-admin/backup');
-        return { success: true, message: 'Restore completed successfully. Please restart your dev server if compilation errors occur.' };
+        return { success: true, message: 'Restore completed successfully.' };
     } catch (error: any) {
-        console.error('Restore failed:', error);
+        console.error('[Backup] Restore failed:', error);
         return { success: false, error: error.message || 'Restoration failed' };
     }
 }

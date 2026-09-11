@@ -1074,6 +1074,7 @@ export default function StudentsPage() {
             <IdCardPhotoRecoveryModal
                 isOpen={isRecoveryModalOpen}
                 onClose={() => setIsRecoveryModalOpen(false)}
+                schoolId={schoolId}
                 students={students}
                 onSuccess={() => {
                     fetchStudents(schoolId, { keyword, classFilter, sectionFilter, sessionId: sessionFilter, status: statusFilter });

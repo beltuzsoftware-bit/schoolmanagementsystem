@@ -25,10 +25,13 @@ import {
 } from "lucide-react";
 import JSZip from "jszip";
 
+import { searchStudents } from "@/app/actions";
+
 interface RecoveryModalProps {
     isOpen: boolean;
     onClose: () => void;
     students: Student[];
+    schoolId?: string;
     onSuccess: () => void;
 }
 
@@ -39,11 +42,12 @@ interface MatchedCard {
     dataUrl: string;
 }
 
-export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, onSuccess }: RecoveryModalProps) {
+export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, onSuccess }: RecoveryModalProps) {
     const [step, setStep] = useState<'upload' | 'calibrate' | 'processing' | 'done'>('upload');
     const [isParsing, setIsParsing] = useState(false);
     const [matchedCards, setMatchedCards] = useState<MatchedCard[]>([]);
     const [unmatchedCount, setUnmatchedCount] = useState(0);
+    const [unmatchedSamples, setUnmatchedSamples] = useState<string[]>([]);
 
     // Crop box percentages (relative to the full card image)
     // Default optimized for "Heritage Model | horizontal | 86x54 mm"
@@ -68,6 +72,7 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, onSuccess 
             setStep('upload');
             setMatchedCards([]);
             setUnmatchedCount(0);
+            setUnmatchedSamples([]);
             setProgressCount(0);
             setSampleIndex(0);
             setCroppedPreviewUrl(null);
@@ -115,38 +120,64 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, onSuccess 
                 return;
             }
 
+            // Always attempt to get complete student roster if schoolId is available
+            let studentPool: Student[] = students;
+            if (schoolId) {
+                try {
+                    const fullRoster = (await searchStudents(schoolId, { status: 'all' })) as Student[];
+                    if (fullRoster && fullRoster.length > 0) {
+                        studentPool = fullRoster;
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch complete roster, using current page students:", e);
+                }
+            }
+
+            if (!studentPool || studentPool.length === 0) {
+                toast.error("No students found in the school database to match against.");
+                setIsParsing(false);
+                return;
+            }
+
             // Match cards with students
             const matched: MatchedCard[] = [];
+            const failedNames: string[] = [];
             let unmatched = 0;
 
             for (const entry of imageEntries) {
                 const cleanName = entry.filename.toLowerCase().replace(/[^a-z0-9]/g, '');
                 
                 // 1. Try match by Admission Number
-                let matchedStudent = students.find(s => {
+                let matchedStudent = studentPool.find(s => {
                     if (!s.admissionNumber) return false;
                     const cleanAdm = s.admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    return cleanAdm.length > 2 && cleanName.includes(cleanAdm);
+                    return cleanAdm.length >= 2 && cleanName.includes(cleanAdm);
                 });
 
                 // 2. Try match by Student Name
                 if (!matchedStudent) {
-                    matchedStudent = students.find(s => {
-                        const nameParts = (s.name || '').toLowerCase().trim().split(/\s+/);
-                        // If first + last name appear in filename
+                    matchedStudent = studentPool.find(s => {
+                        const nameParts = (s.name || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
                         if (nameParts.length >= 2) {
                             return cleanName.includes(nameParts[0]) && cleanName.includes(nameParts[1]);
                         }
-                        return cleanName.includes(nameParts[0]);
+                        if (nameParts.length === 1 && nameParts[0].length >= 3) {
+                            return cleanName.includes(nameParts[0]);
+                        }
+                        return false;
                     });
                 }
 
                 // 3. Try match by Roll Number
                 if (!matchedStudent) {
-                    matchedStudent = students.find(s => {
+                    matchedStudent = studentPool.find(s => {
                         if (!s.rollNumber) return false;
                         const cleanRoll = s.rollNumber.toLowerCase().trim();
-                        return cleanRoll.length >= 1 && cleanName.includes(`roll${cleanRoll}`);
+                        return cleanRoll.length >= 1 && (
+                            cleanName.includes(`roll${cleanRoll}`) || 
+                            cleanName.includes(`rollno${cleanRoll}`) ||
+                            cleanName.includes(`_roll_${cleanRoll}_`)
+                        );
                     });
                 }
 
@@ -163,19 +194,24 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, onSuccess 
                     }
                 } else {
                     unmatched++;
+                    if (failedNames.length < 5) {
+                        failedNames.push(entry.filename);
+                    }
                 }
             }
 
             if (matched.length === 0) {
-                toast.error("Could not automatically match any cards to current students. Please check filename formats.");
+                const sampleFiles = imageEntries.slice(0, 3).map(e => e.filename).join(', ');
+                toast.error(`Could not match any of the ${imageEntries.length} cards to student records. Found: [${sampleFiles}]`);
                 setIsParsing(false);
                 return;
             }
 
             setMatchedCards(matched);
             setUnmatchedCount(unmatched);
+            setUnmatchedSamples(failedNames);
             setStep('calibrate');
-            toast.success(`Matched ${matched.length} cards to student records!`);
+            toast.success(`Matched ${matched.length} card(s) to student records!`);
         } catch (err: any) {
             console.error("Error reading cards:", err);
             toast.error(err.message || "Failed to process card archive");
