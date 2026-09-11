@@ -18,10 +18,12 @@ import {
     RefreshCw, 
     Sparkles, 
     Image as ImageIcon,
-    SlidersHorizontal,
+    Search,
     UserCheck,
     Check,
-    ChevronRight
+    ChevronRight,
+    ArrowRight,
+    SkipForward
 } from "lucide-react";
 import JSZip from "jszip";
 
@@ -42,12 +44,20 @@ interface MatchedCard {
     dataUrl: string;
 }
 
+interface UnmatchedCard {
+    filename: string;
+    blob: Blob;
+    dataUrl: string;
+}
+
 export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, onSuccess }: RecoveryModalProps) {
-    const [step, setStep] = useState<'upload' | 'calibrate' | 'processing' | 'done'>('upload');
+    const [step, setStep] = useState<'upload' | 'assign' | 'calibrate' | 'processing' | 'done'>('upload');
     const [isParsing, setIsParsing] = useState(false);
     const [matchedCards, setMatchedCards] = useState<MatchedCard[]>([]);
-    const [unmatchedCount, setUnmatchedCount] = useState(0);
-    const [unmatchedSamples, setUnmatchedSamples] = useState<string[]>([]);
+    const [unmatchedEntries, setUnmatchedEntries] = useState<UnmatchedCard[]>([]);
+    const [assignIndex, setAssignIndex] = useState(0);
+    const [assignSearch, setAssignSearch] = useState('');
+    const [studentPool, setStudentPool] = useState<Student[]>([]);
 
     // Crop box percentages (relative to the full card image)
     // Default optimized for "Heritage Model | horizontal | 86x54 mm"
@@ -71,8 +81,9 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
         if (isOpen) {
             setStep('upload');
             setMatchedCards([]);
-            setUnmatchedCount(0);
-            setUnmatchedSamples([]);
+            setUnmatchedEntries([]);
+            setAssignIndex(0);
+            setAssignSearch('');
             setProgressCount(0);
             setSampleIndex(0);
             setCroppedPreviewUrl(null);
@@ -121,34 +132,34 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
             }
 
             // Always attempt to get complete student roster if schoolId is available
-            let studentPool: Student[] = students;
+            let pool: Student[] = students;
             if (schoolId) {
                 try {
                     const fullRoster = (await searchStudents(schoolId, { status: 'all' })) as Student[];
                     if (fullRoster && fullRoster.length > 0) {
-                        studentPool = fullRoster;
+                        pool = fullRoster;
                     }
                 } catch (e) {
                     console.warn("Could not fetch complete roster, using current page students:", e);
                 }
             }
 
-            if (!studentPool || studentPool.length === 0) {
+            if (!pool || pool.length === 0) {
                 toast.error("No students found in the school database to match against.");
                 setIsParsing(false);
                 return;
             }
+            setStudentPool(pool);
 
             // Match cards with students
             const matched: MatchedCard[] = [];
-            const failedNames: string[] = [];
-            let unmatched = 0;
+            const unmatched: UnmatchedCard[] = [];
 
             for (const entry of imageEntries) {
                 const cleanName = entry.filename.toLowerCase().replace(/[^a-z0-9]/g, '');
                 
                 // 1. Try match by Admission Number
-                let matchedStudent = studentPool.find(s => {
+                let matchedStudent = pool.find(s => {
                     if (!s.admissionNumber) return false;
                     const cleanAdm = s.admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
                     return cleanAdm.length >= 2 && cleanName.includes(cleanAdm);
@@ -156,7 +167,7 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
 
                 // 2. Try match by Student Name
                 if (!matchedStudent) {
-                    matchedStudent = studentPool.find(s => {
+                    matchedStudent = pool.find(s => {
                         const nameParts = (s.name || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
                         if (nameParts.length >= 2) {
                             return cleanName.includes(nameParts[0]) && cleanName.includes(nameParts[1]);
@@ -170,7 +181,7 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
 
                 // 3. Try match by Roll Number
                 if (!matchedStudent) {
-                    matchedStudent = studentPool.find(s => {
+                    matchedStudent = pool.find(s => {
                         if (!s.rollNumber) return false;
                         const cleanRoll = s.rollNumber.toLowerCase().trim();
                         return cleanRoll.length >= 1 && (
@@ -181,10 +192,11 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                     });
                 }
 
+                const dataUrl = await blobToDataUrl(entry.blob);
+
                 if (matchedStudent) {
                     // Avoid duplicates if same student has multiple cards
                     if (!matched.some(m => m.student.id === matchedStudent!.id)) {
-                        const dataUrl = await blobToDataUrl(entry.blob);
                         matched.push({
                             filename: entry.filename,
                             student: matchedStudent,
@@ -193,30 +205,73 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                         });
                     }
                 } else {
-                    unmatched++;
-                    if (failedNames.length < 5) {
-                        failedNames.push(entry.filename);
-                    }
+                    unmatched.push({
+                        filename: entry.filename,
+                        blob: entry.blob,
+                        dataUrl,
+                    });
                 }
             }
 
-            if (matched.length === 0) {
-                const sampleFiles = imageEntries.slice(0, 3).map(e => e.filename).join(', ');
-                toast.error(`Could not match any of the ${imageEntries.length} cards to student records. Found: [${sampleFiles}]`);
-                setIsParsing(false);
-                return;
-            }
-
             setMatchedCards(matched);
-            setUnmatchedCount(unmatched);
-            setUnmatchedSamples(failedNames);
-            setStep('calibrate');
-            toast.success(`Matched ${matched.length} card(s) to student records!`);
+
+            if (unmatched.length > 0) {
+                // If there are unmatched cards (like WhatsApp photos or custom names), prompt manual assignment
+                setUnmatchedEntries(unmatched);
+                setAssignIndex(0);
+                setAssignSearch('');
+                setStep('assign');
+                if (matched.length > 0) {
+                    toast.info(`Auto-matched ${matched.length} cards. ${unmatched.length} card(s) need manual assignment.`);
+                } else {
+                    toast.info(`Could not auto-match filenames. Please select the matching student.`);
+                }
+            } else if (matched.length > 0) {
+                setStep('calibrate');
+                toast.success(`Matched all ${matched.length} cards to student records!`);
+            } else {
+                toast.error("Could not find any cards to process.");
+            }
         } catch (err: any) {
             console.error("Error reading cards:", err);
             toast.error(err.message || "Failed to process card archive");
         } finally {
             setIsParsing(false);
+        }
+    };
+
+    // Manual assignment handlers
+    const handleAssignStudent = (student: Student) => {
+        const currentUnmatched = unmatchedEntries[assignIndex];
+        if (!currentUnmatched) return;
+
+        const updated = [...matchedCards.filter(m => m.student.id !== student.id), {
+            filename: currentUnmatched.filename,
+            student,
+            blob: currentUnmatched.blob,
+            dataUrl: currentUnmatched.dataUrl
+        }];
+        setMatchedCards(updated);
+
+        if (assignIndex + 1 < unmatchedEntries.length) {
+            setAssignIndex(i => i + 1);
+            setAssignSearch('');
+            toast.success(`Assigned to ${student.name}`);
+        } else {
+            setStep('calibrate');
+            toast.success(`Card assigned to ${student.name}! Ready to calibrate.`);
+        }
+    };
+
+    const handleSkipUnmatched = () => {
+        if (assignIndex + 1 < unmatchedEntries.length) {
+            setAssignIndex(i => i + 1);
+            setAssignSearch('');
+        } else if (matchedCards.length > 0) {
+            setStep('calibrate');
+        } else {
+            toast.error("No cards matched or assigned.");
+            setStep('upload');
         }
     };
 
@@ -335,7 +390,7 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
         }
     };
 
-    const currentSample = matchedCards[sampleIndex];
+    const currentSample = matchedCards[sampleIndex] || matchedCards[0];
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -411,6 +466,108 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                     </div>
                 )}
 
+                {/* ── STEP 1.5: MANUAL ASSIGNMENT (FOR WHATSAPP / UNMATCHED CARDS) ── */}
+                {step === 'assign' && unmatchedEntries[assignIndex] && (
+                    <div className="space-y-4">
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-xs text-amber-800">
+                            <div className="flex items-center gap-2 font-bold">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>
+                                    Card <strong>{assignIndex + 1}</strong> of <strong>{unmatchedEntries.length}</strong>: Match this card to a student
+                                </span>
+                            </div>
+                            <span className="font-semibold text-slate-500">
+                                {matchedCards.length} Already Matched
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            {/* Card Preview */}
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-slate-700">Uploaded Card Image</Label>
+                                <div className="border border-slate-200 rounded-xl bg-slate-50 p-2 flex flex-col items-center justify-center min-h-[220px]">
+                                    <img 
+                                        src={unmatchedEntries[assignIndex].dataUrl} 
+                                        alt="ID Card" 
+                                        className="max-h-56 max-w-full object-contain rounded shadow-sm border border-slate-200" 
+                                    />
+                                    <p className="text-[10px] text-slate-500 mt-2 font-mono truncate max-w-full px-2">
+                                        {unmatchedEntries[assignIndex].filename}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Student Search & Select */}
+                            <div className="space-y-3">
+                                <div>
+                                    <Label className="text-xs font-bold text-slate-700">Find & Link Student</Label>
+                                    <p className="text-[11px] text-slate-500">Search by student name, admission number, or roll number:</p>
+                                </div>
+
+                                <div className="relative">
+                                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                                    <Input
+                                        placeholder="Type name (e.g. Anay) or ID..."
+                                        value={assignSearch}
+                                        onChange={(e) => setAssignSearch(e.target.value)}
+                                        className="pl-9 text-xs"
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <div className="max-h-56 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+                                    {studentPool
+                                        .filter(s => {
+                                            if (!assignSearch.trim()) return true;
+                                            const q = assignSearch.toLowerCase().trim();
+                                            return (
+                                                (s.name || '').toLowerCase().includes(q) ||
+                                                (s.admissionNumber || '').toLowerCase().includes(q) ||
+                                                (s.rollNumber || '').toLowerCase().includes(q) ||
+                                                (s.className || '').toLowerCase().includes(q)
+                                            );
+                                        })
+                                        .slice(0, 10)
+                                        .map(s => (
+                                            <div
+                                                key={s.id}
+                                                onClick={() => handleAssignStudent(s)}
+                                                className="p-2 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 cursor-pointer flex items-center justify-between transition-all group"
+                                            >
+                                                <div className="min-w-0 pr-2">
+                                                    <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 truncate">
+                                                        {s.name}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-500 truncate">
+                                                        {s.className} {s.section ? `• Sec ${s.section}` : ''} | ID: {s.admissionNumber || 'N/A'} | Roll: {s.rollNumber || 'N/A'}
+                                                    </div>
+                                                </div>
+                                                <Button size="sm" variant="ghost" className="h-6 text-[11px] text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white shrink-0 px-2">
+                                                    Select <ChevronRight className="w-3 h-3 ml-0.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                    <Button variant="ghost" size="sm" onClick={handleSkipUnmatched} className="text-xs text-slate-500">
+                                        <SkipForward className="w-3.5 h-3.5 mr-1" /> Skip this card
+                                    </Button>
+                                    {matchedCards.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => setStep('calibrate')}
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs"
+                                        >
+                                            Proceed to Crop ({matchedCards.length}) <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── STEP 2: CALIBRATE CROP ── */}
                 {step === 'calibrate' && currentSample && (
                     <div className="space-y-6">
@@ -419,8 +576,8 @@ export function IdCardPhotoRecoveryModal({ isOpen, onClose, students, schoolId, 
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                                 <span>Matched <strong>{matchedCards.length}</strong> students ready for restoration!</span>
                             </div>
-                            {unmatchedCount > 0 && (
-                                <span className="text-slate-500">({unmatchedCount} files not matched)</span>
+                            {unmatchedEntries.length > 0 && (
+                                <span className="text-slate-500">({unmatchedEntries.length} files not matched)</span>
                             )}
                         </div>
 
